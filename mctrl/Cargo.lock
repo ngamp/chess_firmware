@@ -40,7 +40,6 @@ version = "0.1.0"
 dependencies = [
  "embedded-hal 1.0.0",
  "rppal",
- "uln2003",
 ]
 
 [[package]]
@@ -80,15 +79,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4196b31c8c1dc443543be4f4d0e827657fbf2b87387e5c8f229b14f1c046718a"
 dependencies = [
  "windows-sys",
-]
-
-[[package]]
-name = "uln2003"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30326deb6c70b669815454c7837dc34a6c9a399e0c1e8960283cbb6c33ef1b12"
-dependencies = [
- "embedded-hal 1.0.0",
 ]
 
 [[package]]
