@@ -73,3 +73,45 @@ pub mod motor {
         }
     }
 }
+
+pub mod magnet {
+    use rppal::gpio::{OutputPin, Gpio};
+
+    use crate::motor::MtrErrors;
+
+
+    #[derive(Debug)]
+    pub struct Magnet {
+        pin: OutputPin,
+    }
+
+    impl Magnet {
+        pub fn new(pinnum: u8) -> Result<Self, MtrErrors> {
+            let gp = match Gpio::new() {
+                Ok(gp) => gp,
+                Err(_) => return Err(MtrErrors::GpioCreationError)
+            };
+            let mgpin = match Gpio::get(&gp, pinnum) {
+                Ok(mg) => mg.into_output_low(),
+                Err(rr) => return Err(MtrErrors::PinGettingError(rr))
+            };
+            return Ok(Magnet {
+                pin: mgpin
+            })
+        }
+
+        pub fn status(&self) -> bool {
+            return self.pin.is_set_high()
+        }
+
+        pub fn on(&mut self) {
+            self.pin.set_high();
+        }
+
+        pub fn off(&mut self) {
+            self.pin.set_low();
+        }
+    }
+
+
+}
