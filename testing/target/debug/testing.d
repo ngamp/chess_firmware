@@ -1,0 +1,1 @@
+/home/noah/chess_firmware/testing/target/debug/testing: /home/noah/chess_firmware/mctrl/src/lib.rs /home/noah/chess_firmware/pathfinding/src/lib.rs /home/noah/chess_firmware/position/src/lib.rs /home/noah/chess_firmware/stockfish/src/lib.rs /home/noah/chess_firmware/testing/src/main.rs
