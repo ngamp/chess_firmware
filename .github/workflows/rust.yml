@@ -16,7 +16,13 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Build
+    - name: Build main
       run: cd mainp/ && cargo build --verbose
-    - name: Run tests
+    - name: Run tests for position lib
       run: cd position/ && cargo test --verbose
+    - name: Run tests for stockfish lib
+      run: cd stockfish/ && cargo test --verbose
+    - name: Run tests for mctrl lib
+      run: cd mctrl/ && cargo test --verbose
+    - name: Run tests for pathfinding lib
+      run: cd pathfinding/ && cargo test --verbose
