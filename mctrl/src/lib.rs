@@ -54,7 +54,11 @@ pub mod motor {
             self.enb_pin.set_low();
         }
 
-        pub fn move_steps(&mut self, steps: u32, direction: bool, speed: u32) -> Result<(), MtrErrors>{
+        fn rps_to_del(rps: f32) -> u32 {
+            (5000.0/rps) as u32 / 2
+        }
+
+        pub fn move_steps(&mut self, steps: u32, direction: bool, speed: f32) -> Result<(), MtrErrors>{
             if self.enb_pin.is_set_low() {
                 return Err(MtrErrors::MotorDisabled)
             };
@@ -63,11 +67,12 @@ pub mod motor {
             } else {
                 self.dirpin.set_low();
             };
+            let del = Self::rps_to_del(speed);
             for _ in 0..steps {
                 self.steppin.set_high();
-                self.delay.delay_ns(speed);
+                self.delay.delay_us(del);
                 self.steppin.set_low();
-                self.delay.delay_ns(speed);
+                self.delay.delay_us(del);
             };
             Ok(())
         }
