@@ -82,7 +82,7 @@ pub mod magnet {
 
     #[derive(Debug)]
     pub struct Magnet {
-        pin: OutputPin,
+        pub pin: OutputPin,
     }
 
     impl Magnet {
@@ -114,4 +114,21 @@ pub mod magnet {
     }
 
 
+}
+
+pub mod delay {
+    use embedded_hal::delay::DelayNs;
+    use rppal::hal::Delay;
+
+    pub fn delayms(time: u32) {
+        Delay.delay_ms(time);
+    }
+
+    pub fn delaymics(time: u32) {
+        Delay.delay_us(time);
+    }
+
+    pub fn delayns(time: u32) {
+        Delay.delay_ns(time);
+    }
 }
