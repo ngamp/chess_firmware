@@ -1,0 +1,2 @@
+min. ms: 1.5 rps
+max. ms: 6 rps
