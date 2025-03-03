@@ -1,6 +1,7 @@
 pub mod motor {
-    use embedded_hal::delay::DelayNs;
-    use rppal::{gpio::{self, Error, OutputPin}, hal::Delay};
+    use rppal::gpio::{self, Error, OutputPin};
+
+    use crate::delay;
 
     #[derive(Debug)]
     pub enum MtrErrors {
@@ -15,7 +16,6 @@ pub mod motor {
         pub dirpin: OutputPin,
         pub steppin: OutputPin,
         pub enb_pin: OutputPin,
-        pub delay: Delay,
     }
     impl Mtr {
         pub fn new(xaxis: bool, dp: u8, sp: u8, enbp: u8) -> Result<Self, MtrErrors>  {
@@ -35,13 +35,11 @@ pub mod motor {
                 Ok(sp) => sp.into_output_low(),
                 Err(rr) => return Err(MtrErrors::PinGettingError(rr))
             };
-            let dl = Delay::new();
             Ok(Mtr {
                 xaxis: xaxis,
                 dirpin: dirpin,
                 steppin: steppin,
-                enb_pin: enablepin,
-                delay: dl
+                enb_pin: enablepin
             })
 
         }
@@ -54,10 +52,6 @@ pub mod motor {
             self.enb_pin.set_low();
         }
 
-        fn rps_to_del(rps: f32) -> u32 {
-            (5000.0/rps) as u32 / 2
-        }
-
         pub fn move_steps(&mut self, steps: u32, direction: bool, speed: f32) -> Result<(), MtrErrors>{
             if self.enb_pin.is_set_low() {
                 return Err(MtrErrors::MotorDisabled)
@@ -67,15 +61,45 @@ pub mod motor {
             } else {
                 self.dirpin.set_low();
             };
-            let del = Self::rps_to_del(speed);
+            let del = rps_to_del(speed);
             for _ in 0..steps {
                 self.steppin.set_high();
-                self.delay.delay_us(del);
+                delay::delaymics(del);
                 self.steppin.set_low();
-                self.delay.delay_us(del);
+                delay::delaymics(del);
             };
             Ok(())
         }
+    }
+
+    fn rps_to_del(rps: f32) -> u32 {
+        (5000.0/rps) as u32 / 2
+    }
+
+    pub fn diagonal(x: &mut Mtr, y: &mut Mtr, right: bool, up: bool, steps: u32, speed: f32) -> Result<(), MtrErrors>{
+        if x.enb_pin.is_set_low() || y.enb_pin.is_set_low() {
+            return Err(MtrErrors::MotorDisabled)
+        };
+        if right {
+            x.dirpin.set_high();
+        } else {
+            x.dirpin.set_low();
+        };
+        if up {
+            y.dirpin.set_high();
+        } else {
+            y.dirpin.set_low();
+        }
+        let del = rps_to_del(speed);
+        for _ in 0..steps {
+            x.steppin.set_high();
+            y.steppin.set_high();
+            delay::delaymics(del);
+            x.steppin.set_low();
+            y.steppin.set_low();
+            delay::delaymics(del);
+        }
+        Ok(())
     }
 }
 

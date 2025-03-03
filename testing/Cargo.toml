@@ -5,6 +5,5 @@ edition = "2021"
 
 [dependencies]
 mctrl = { version = "0.1.0", path = "../mctrl" }
-pathfinding = { version = "0.1.0", path = "../pathfinding" }
 position = { version = "0.1.0", path = "../position" }
 stockfish = { version = "0.1.0", path = "../stockfish" }

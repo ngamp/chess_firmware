@@ -170,7 +170,7 @@ pub mod position {
     #[derive(Clone)]
     pub struct Position {
         pub colorw: bool,
-        pub fields: [[Piece;8];12],
+        pub fields: [[Piece;14];8],
         pub moves: u32,
         pub en_passant: String,
         pub rochade: [Piece;4],
@@ -184,19 +184,14 @@ pub mod position {
         pub fn new_reset() -> Self {
             Position {
                 colorw: true,
-                fields: [[Piece::Rook(false),Piece::Knight(false),Piece::Bishop(false),Piece::Queen(false),Piece::King(false),Piece::Bishop(false),Piece::Knight(false),Piece::Rook(false)],
-                    [Piece::Pawn(false),Piece::Pawn(false),Piece::Pawn(false),Piece::Pawn(false),Piece::Pawn(false),Piece::Pawn(false),Piece::Pawn(false),Piece::Pawn(false)],
-                    [Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None],
-                    [Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None],
-                    [Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None],
-                    [Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None],
-                    [Piece::Pawn(true),Piece::Pawn(true),Piece::Pawn(true),Piece::Pawn(true),Piece::Pawn(true),Piece::Pawn(true),Piece::Pawn(true),Piece::Pawn(true)],
-                    [Piece::Rook(true),Piece::Knight(true),Piece::Bishop(true),Piece::Queen(true),Piece::King(true),Piece::Bishop(true),Piece::Knight(true),Piece::Rook(true)],
-                    
-                    [Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None],
-                    [Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None],
-                    [Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None],
-                    [Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None]],
+                fields: [[Piece::None,Piece::None,Piece::None,Piece::Rook(false),Piece::Knight(false),Piece::Bishop(false),Piece::Queen(false),Piece::King(false),Piece::Bishop(false),Piece::Knight(false),Piece::Rook(false),Piece::None,Piece::None,Piece::None],
+                    [Piece::None,Piece::None,Piece::None,Piece::Pawn(false),Piece::Pawn(false),Piece::Pawn(false),Piece::Pawn(false),Piece::Pawn(false),Piece::Pawn(false),Piece::Pawn(false),Piece::Pawn(false),Piece::None,Piece::None,Piece::None],
+                    [Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None],
+                    [Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None],
+                    [Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None],
+                    [Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None],
+                    [Piece::None,Piece::None,Piece::None,Piece::Pawn(true),Piece::Pawn(true),Piece::Pawn(true),Piece::Pawn(true),Piece::Pawn(true),Piece::Pawn(true),Piece::Pawn(true),Piece::Pawn(true),Piece::None,Piece::None,Piece::None],
+                    [Piece::None,Piece::None,Piece::None,Piece::Rook(true),Piece::Knight(true),Piece::Bishop(true),Piece::Queen(true),Piece::King(true),Piece::Bishop(true),Piece::Knight(true),Piece::Rook(true),Piece::None,Piece::None,Piece::None]],
                 moves: 1,
                 en_passant: "-".to_string(),
                 rochade: [Piece::King(true),Piece::Queen(true),Piece::King(false),Piece::Queen(false)],
@@ -204,7 +199,11 @@ pub mod position {
             }
         }
 
-        pub fn update(&mut self, cmove: &str) -> Result<(State, [[Piece; 8]; 12]), ModuleError> {
+        pub fn from_fen(fen: &str) -> Self {
+            Position::new_reset()
+        }
+
+        pub fn update(&mut self, cmove: &str) -> Result<(State, [[Piece; 14]; 8]), ModuleError> {
             let pos_before  = self.fields.clone();
             let movetype = match self.validate_move_possibility(cmove) {
                 Ok(mt) => mt,
@@ -457,19 +456,14 @@ mod tests {
     fn get_position() -> Position {
         self::position::Position {
             colorw: true,
-            fields: [[Piece::Rook(false),Piece::Knight(false),Piece::Bishop(false),Piece::Queen(false),Piece::King(false),Piece::Bishop(false),Piece::Knight(false),Piece::Rook(false)],
-                [Piece::None,Piece::Pawn(false),Piece::None,Piece::None,Piece::Pawn(false),Piece::Pawn(false),Piece::Pawn(false),Piece::Pawn(false)],
-                [Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None],
-                [Piece::Pawn(false),Piece::None,Piece::Pawn(false),Piece::Pawn(false),Piece::Pawn(true),Piece::None,Piece::None,Piece::None],
-                [Piece::Pawn(true),Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None],
-                [Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None],
-                [Piece::None,Piece::Pawn(true),Piece::Pawn(true),Piece::None,Piece::Pawn(true),Piece::Pawn(true),Piece::Pawn(true),Piece::Pawn(true)],
-                [Piece::Rook(true),Piece::Knight(true),Piece::Bishop(true),Piece::Queen(true),Piece::King(true),Piece::Bishop(true),Piece::Knight(true),Piece::Rook(true)],
-                
-                [Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None],
-                [Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None],
-                [Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None],
-                [Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None]],
+            fields: [[Piece::None,Piece::None,Piece::None,Piece::Rook(false),Piece::Knight(false),Piece::Bishop(false),Piece::Queen(false),Piece::King(false),Piece::Bishop(false),Piece::Knight(false),Piece::Rook(false),Piece::None,Piece::None,Piece::None],
+                [Piece::None,Piece::None,Piece::None,Piece::None,Piece::Pawn(false),Piece::None,Piece::None,Piece::Pawn(false),Piece::Pawn(false),Piece::Pawn(false),Piece::Pawn(false),Piece::None,Piece::None,Piece::None],
+                [Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None],
+                [Piece::None,Piece::None,Piece::None,Piece::Pawn(false),Piece::None,Piece::Pawn(false),Piece::Pawn(false),Piece::Pawn(true),Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None],
+                [Piece::None,Piece::None,Piece::None,Piece::Pawn(true),Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None],
+                [Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None],
+                [Piece::None,Piece::None,Piece::None,Piece::None,Piece::Pawn(true),Piece::Pawn(true),Piece::None,Piece::Pawn(true),Piece::Pawn(true),Piece::Pawn(true),Piece::Pawn(true),Piece::None,Piece::None,Piece::None],
+                [Piece::None,Piece::None,Piece::None,Piece::Rook(true),Piece::Knight(true),Piece::Bishop(true),Piece::Queen(true),Piece::King(true),Piece::Bishop(true),Piece::Knight(true),Piece::Rook(true),Piece::None,Piece::None,Piece::None]],
             moves: 1,
             en_passant: "d6".to_string(),
             rochade: [Piece::King(true),Piece::Queen(true),Piece::King(false),Piece::Queen(false)],
