@@ -39,9 +39,10 @@ fn main() {
     magnet.on();
     delay::delayms(7000);
     magnet.off();*/
-    std::env::set_var("RUST_BACKTRACE", "1");
     let a = position::Position::from_fen(
-        "8/3R4/3kp3/1Q6/1P6/8/1PK1P3/8 b - - 8 44",
+        "r3k2r/pp2ppbp/4b3/2p5/4q1P1/2P1B2P/PP2P3/RN1QK1NR w KQkq - 0 13",
     );
-    println!("{:?}", a);
+    for i in a.unwrap().fields {
+        println!("{:?}", i)
+    }
 }

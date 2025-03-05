@@ -30,11 +30,12 @@ pub mod position {
     }
 
     #[derive(Debug)]
+    #[derive(Eq, Hash, PartialEq)]
     pub enum MoveType {
-        Normal,
-        Capturing(Piece),
-        Rochade(String),
-        EnPassant
+        Normal(Piece),
+        Capturing(Piece, Piece),
+        Rochade(Piece),
+        EnPassant((usize, usize))
     }
 
     fn to_int(s: &str) -> i32 {
@@ -177,7 +178,8 @@ pub mod position {
         WrongFigurStart,
         UnrightCoordinates,
         UnallowedRochade,
-        ImpossiblePosition
+        ImpossiblePosition,
+        CleaningError(CleaningError)
     }
 
     #[derive(Debug)]
@@ -187,6 +189,7 @@ pub mod position {
         Other
     }
 
+    #[derive(Debug)]
     pub enum CleaningError {
         KingBeforeQueen,
         ImpossiblePosition
@@ -432,159 +435,190 @@ pub mod position {
             }
         }
 
-        pub fn update(&mut self, cmove: &str) -> Result<(State, [[Piece; 14]; 8]), ModuleError> {
-            let pos_before  = self.fields.clone();
-            let movetype = match self.validate_move_possibility(cmove) {
-                Ok(mt) => mt,
-                Err(rr) => return Err(ModuleError::ImpossibleMove(rr))
+        pub fn update(&mut self, ind_move: ((usize, usize), (usize, usize)), coord_move: &str) -> Result<Vec<((usize, usize), (usize, usize))>, ModuleError> {
+            let mt = match self.validate_move_possibility(coord_move) {
+                Err(rr) => return Err(ModuleError::ImpossibleMove(rr)),
+                Ok(mt) => mt
             };
-            let piece = match self.coordinates_to_piece(cmove.split_at(2).0) {
-                Ok(p) => p,
-                Err(rr) => return Err(ModuleError::MoveError(rr))
-            };
-            let (sf, ef) = cmove.split_at(2);
-            match movetype {
-                MoveType::Normal => {
-                    match self.update_wo_capt(piece, sf, ef) {
-                        Ok(_) => {},
-                        Err(rr) => return Err(ModuleError::MoveError(rr))
-                    };
-                },
-                MoveType::Capturing(capt_piece) => {
-
-                },
-                MoveType::EnPassant => {
-
-                },
-                MoveType::Rochade(rtype) => {
-
-                }
-            };
-            Ok((State::Normal, pos_before))
-        }
-
-        fn update_wo_capt(&mut self, piece: Piece, sf: &str, ef: &str) -> Result<(), MoveError> {
-            self.update_ex_moves(piece, sf, ef);
-            let (mut lc, mut nc) = match coordinates_to_index(ef) {
-                Ok(t) => t,
-                Err(rr) => return Err(rr)
-            };
-            self.fields[lc][nc] = piece;
-            (lc, nc) = match coordinates_to_index(sf) {
-                Ok(t) => t,
-                Err(rr) => return Err(rr)
-            };
-            self.fields[lc][nc] = Piece::None;
-            Ok(())
-        }
-
-        fn update_ex_moves(&mut self, piece: Piece, sf: &str, ef: &str) {
-            match piece {
-                Piece::Pawn(_) => {
-                    self.since_pawn_major = 0;
-                    match (sf.split_at(1).1, ef.split_at(1).1) {
-                        ("2", "4") => self.en_passant = format!("{}3", sf.split_at(1).0),
-                        ("7", "5") => self.en_passant = format!("{}6", sf.split_at(1).0),
-                        _ => {}
-                    }
-                },
-                Piece::Rook(b) => {
-                    match (sf, b) {
-                        ("a1", true) => self.rochade[0] = Piece::None,
-                        ("h1", true) => self.rochade[0] = Piece::None,
-                        ("a8", false) => self.rochade[0] = Piece::None,
-                        ("h8", false) => self.rochade[0] = Piece::None,
-                        _ => {}
-                    }
-                }
-                _ => self.since_pawn_major += 1
-            };
-            self.moves += 1;
+            let piece = self.index_to_piece(ind_move.0).unwrap(); //existence already checked at validate_move_possibility
+            // inverting color
             self.colorw = !self.colorw;
+            //adding 1 move 
+            self.moves += 1;
+            // writing enpassant string, adjusting rochade and since_pawn_major
+            self.since_pawn_major += 1;
+            match piece {
+                Piece::King(c) => {
+                    if c {
+                        self.rochade[0] = Piece::None;
+                        self.rochade[1] = Piece::None;
+                    } else {
+                        self.rochade[2] = Piece::None;
+                        self.rochade[3] = Piece::None;
+                    }
+                },
+                Piece::Rook(_) => {
+                    match ind_move.0 {
+                        (0, 3) => self.rochade[3] = Piece::None,
+                        (0,10) => self.rochade[2] = Piece::None,
+                        (7, 3) => self.rochade[1] = Piece::None,
+                        (7, 10) => self.rochade[0] = Piece::None,
+                        _ => {}
+                    }
+                },
+                Piece::Pawn(c) => {
+                    self.since_pawn_major = 0;
+                    self.en_passant = "-".to_string();
+                    if c {
+                        if ind_move.0.0 == 6 && ind_move.1.0 == 4 {
+                            self.en_passant = format!("{}3", coord_move.chars().nth(0).unwrap());
+                        };
+                    } else {
+                        if ind_move.0.0 == 1 && ind_move.1.0 == 3 {
+                            self.en_passant = format!("{}6", coord_move.chars().nth(0).unwrap());
+                        };
+                    }
+                },
+                _ => {}
+            };
+            //update fields (and since_pawn_major)
+            let mut moves: Vec<((usize, usize), (usize, usize))> = Vec::new();
+            let ((sfr, sfs), (efr, efs)) = ind_move;
+            match mt {
+                MoveType::Normal(p) => {
+                    self.fields[efr][efs] = p;
+                    self.fields[sfr][sfs] = Piece::None;
+                    moves.push(ind_move);
+                },
+                MoveType::Capturing(p, cp) => {
+                    self.since_pawn_major = 0;
+                    let rest_ind = match self.add_rest(cp) {
+                        Ok(t) => t,
+                        Err(rr) => return Err(ModuleError::MoveError(MoveError::CleaningError(rr)))
+                    };
+                    moves.push((ind_move.1, rest_ind));
+                    self.fields[sfr][sfs] = Piece::None;
+                    self.fields[efr][efs] = p;
+                    moves.push(ind_move);
+                },
+                MoveType::EnPassant(bind) => {
+                    let beaten_piece = match self.index_to_piece(bind) {
+                        Some(i) => i,
+                        None => return Err(ModuleError::MoveError(MoveError::ImpossiblePosition))
+                    };
+                    let rest_ind = match self.add_rest(beaten_piece) {
+                        Ok(t) => t,
+                        Err(rr) => return Err(ModuleError::MoveError(MoveError::CleaningError(rr)))
+                    };
+                    moves.push((bind, rest_ind));
+                    self.fields[bind.0][bind.1] = Piece::None;
+                    self.fields[sfr][sfs] = Piece::None;
+                    self.fields[efr][efs] = Piece::Pawn(!beaten_piece.piece_to_color());
+                    moves.push(ind_move);
+                },
+                MoveType::Rochade(p) => {
+                    let (ks, ke, rs, re) = match p {
+                        Piece::King(true) => (coordinates_to_index("e1").unwrap(), coordinates_to_index("g1").unwrap(), coordinates_to_index("h1").unwrap(), coordinates_to_index("f1").unwrap()),
+                        Piece::Queen(true) => (coordinates_to_index("e1").unwrap(), coordinates_to_index("c1").unwrap(), coordinates_to_index("a1").unwrap(), coordinates_to_index("d1").unwrap()),
+                        Piece::King(false) => (coordinates_to_index("e8").unwrap(), coordinates_to_index("g8").unwrap(), coordinates_to_index("h8").unwrap(), coordinates_to_index("f8").unwrap()),
+                        Piece::Queen(false) => (coordinates_to_index("e8").unwrap(), coordinates_to_index("c8").unwrap(), coordinates_to_index("a8").unwrap(), coordinates_to_index("d8").unwrap()),
+                        _ => return Err(ModuleError::Other)
+                    };
+                    self.fields[ks.0][ks.1] = Piece::None;
+                    self.fields[ke.0][ke.1] = Piece::King(p.piece_to_color());
+                    moves.push((ks, ke));
+                    self.fields[rs.0][rs.1] = Piece::None;
+                    self.fields[re.0][re.1] = Piece::Rook(p.piece_to_color());
+                    moves.push((rs, re));
+                }
+            };
+            Ok(moves)
         }
 
         pub fn validate_move_possibility(&self, cmove: &str) -> Result<MoveType, MoveError> {
             match cmove {
                 "e1g1" => {
                     match self.rochade[0] {
-                        Piece::King(true) => return Ok(MoveType::Rochade("K".to_owned())),
+                        Piece::King(true) => return Ok(MoveType::Rochade(Piece::King(true))),
                         _ => return Err(MoveError::UnallowedRochade)
                     }
                 },
                 "e1c1" => {
                     match self.rochade[1] {
-                        Piece::Queen(true) => return Ok(MoveType::Rochade("Q".to_owned())),
+                        Piece::Queen(true) => return Ok(MoveType::Rochade(Piece::Queen(true))),
                         _ => return Err(MoveError::UnallowedRochade)
                     }
                 },
                 "e8g8" => {
                     match self.rochade[2] {
-                        Piece::King(false) => return Ok(MoveType::Rochade("k".to_owned())),
+                        Piece::King(false) => return Ok(MoveType::Rochade(Piece::King(false))),
                         _ => return Err(MoveError::UnallowedRochade)
                     }
                 },
                 "e8c8" => {
                     match self.rochade[3] {
-                        Piece::Queen(false) => return Ok(MoveType::Rochade("q".to_owned())),
+                        Piece::Queen(false) => return Ok(MoveType::Rochade(Piece::Queen(false))),
                         _ => return Err(MoveError::UnallowedRochade)
                     }
                 },
                 _ => {}
             };
             let (start_field, end_field) = cmove.split_at(2);
-            let piece = match self.coordinates_to_piece(start_field) {
-                Err(rr) => return Err(rr),
-                Ok(piece) => piece
-            };
-            //let next_match_statement = String::from("-");
-            match (self.en_passant.as_str(), piece) {
-                ("-",  _) => {},
-                (mm, Piece::Pawn(_)) => {
-                    println!("{}", mm);
-                    if mm == cmove.split_at(2).1 {
-                        return Ok(MoveType::EnPassant)
-                    }
-                },
-                (_, _) => {}
-            }
-            if piece == Piece::None {
-                return Err(MoveError::NoFigurStart);
-            } else {
-                if self.colorw ^ piece.piece_to_color() {
-                    return Err(MoveError::WrongFigurStart)
+            let piece = self.coordinates_to_piece(start_field)?;
+            if let Some(piece) = piece {
+                match (self.en_passant.as_str(), piece) {
+                    ("-",  _) => {},
+                    (mm, Piece::Pawn(_)) => {
+                        println!("{}", mm);
+                        if mm == cmove.split_at(2).1 {
+                            let mut ind_mm = coordinates_to_index(mm)?;
+                            if ind_mm.0 == 2 {
+                                ind_mm.0 += 1
+                            } else {
+                                ind_mm.0 -= 1
+                            };
+                            return Ok(MoveType::EnPassant(ind_mm))
+                        }
+                    },
+                    (_, _) => {}
                 }
-            };
-            let capt_piece = match self.coordinates_to_piece(end_field) {
-                Ok(p) => p,
-                Err(rr) => return Err(rr)
-            };
-            match capt_piece {
-                Piece::None => {},
-                rp => {
-                    if self.colorw && rp.piece_to_color() {
+                if piece == Piece::None {
+                    return Err(MoveError::NoFigurStart);
+                } else {
+                    if self.colorw ^ piece.piece_to_color() {
+                        return Err(MoveError::WrongFigurStart)
+                    }
+                };
+                match &piece.check_field(start_field, end_field) {
+                    true => {},
+                    false => return Err(MoveError::MoveNotFitPiece(piece))
+                };
+                let capt_piece = self.coordinates_to_piece(end_field)?;
+                if let Some(capt_piece) = capt_piece {
+                    if piece.piece_to_color() == capt_piece.piece_to_color() {
                         return Err(MoveError::OwnFigurEnd)
-                    }
+                    };
+                    Ok(MoveType::Capturing(piece, capt_piece))
+                } else {
+                    Ok(MoveType::Normal(piece))
                 }
-            };
-            match &piece.check_field(start_field, end_field) {
-                true => {},
-                false => return Err(MoveError::MoveNotFitPiece(piece))
-            };
-            match capt_piece {
-                Piece::None => Ok(MoveType::Normal),
-                _ => Ok(MoveType::Capturing(capt_piece))
-            }
-
-            
+            } else {
+                return Err(MoveError::NoFigurStart)
+            }            
         }
 
-        pub fn coordinates_to_piece(&self, coordinate: &str) -> Result<Piece, MoveError> {
-            let (lett, num) = match coordinates_to_index(coordinate) {
-                Ok(a) => (a.0, a.1),
-                Err(rr) => return Err(rr)
-            };
-            Ok((&self.fields[lett][num]).clone())
-        }    
+        pub fn coordinates_to_piece(&self, coord: &str) -> Result<Option<Piece>, MoveError> {
+            let res = coordinates_to_index(coord)?;
+            Ok(self.index_to_piece(res))
+        }
+
+        pub fn index_to_piece(&self, ind: (usize, usize)) -> Option<Piece> {
+            if self.field_is_empty(ind) {
+                None
+            } else {
+                Some(self.fields[ind.0][ind.1])
+            }
+        }
     }
 
     pub fn coordinates_to_index(coordinate: &str) -> Result<(usize, usize), MoveError> {
@@ -688,14 +722,14 @@ mod tests {
 
     #[test]
     fn it_works1() {
-        let result: &Result<Piece, MoveError> = &get_position().coordinates_to_piece("a1");
-        assert_eq!(format!("{:?}", result) , format!("{:?}", Ok::<position::Piece, MoveError>(Piece::Rook(true))));
+        let result: &Result<Option<Piece>, MoveError> = &get_position().coordinates_to_piece("h1");
+        assert_eq!(format!("{:?}", result) , format!("{:?}", Ok::<Option<position::Piece>, MoveError>(Some(Piece::Rook(true)))));
     }
 
     #[test]
     fn it_works2() {
         let result: &Result<MoveType, MoveError> = &get_position().validate_move_possibility("f1b5");
-        assert_eq!(format!("{:?}", result) , format!("{:?}", Ok::<position::MoveType, MoveError>(MoveType::Normal)));
+        assert_eq!(format!("{:?}", result) , format!("{:?}", Ok::<position::MoveType, MoveError>(MoveType::Normal(Piece::Bishop(true)))));
     }
 
     #[test]
