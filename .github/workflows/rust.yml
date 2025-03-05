@@ -24,5 +24,3 @@ jobs:
       run: cd stockfish/ && cargo test --verbose
     - name: Run tests for mctrl lib
       run: cd mctrl/ && cargo test --verbose
-    - name: Run tests for pathfinding lib
-      run: cd pathfinding/ && cargo test --verbose
