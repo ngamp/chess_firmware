@@ -155,7 +155,7 @@ pub mod position {
                     }
                 },
                 Piece::Pawn(false) => {
-                    match ((self::letter_to_int(sl) as i64 - self::letter_to_int(el) as i64), (self::to_int(sn) as i64 - self::to_int(el) as i64)) {
+                    match ((self::letter_to_int(sl) as i64 - self::letter_to_int(el) as i64), (self::to_int(sn) as i64 - self::to_int(en) as i64)) {
                         (0, 1..3) => true,
                         (-1..2, 1) => true, 
                         _ => false
@@ -183,9 +183,10 @@ pub mod position {
     }
 
     #[derive(Debug)]
-    pub enum ModuleError {
+    pub enum UpdateError {
         ImpossibleMove(MoveError),
-        MoveError(MoveError),
+        EnpassantMissing,
+        CleaningError(CleaningError),
         Other
     }
 
@@ -408,7 +409,6 @@ pub mod position {
                             }
                         }
                     };
-                    println!("here");
                     Err(CleaningError::ImpossiblePosition)
                 },
                 Piece::Pawn(false) => {
@@ -420,7 +420,6 @@ pub mod position {
                             }
                         }
                     };
-                    println!("here");
                     Err(CleaningError::ImpossiblePosition)
                 }
                 _ => return Err(CleaningError::KingBeforeQueen)
@@ -435,9 +434,9 @@ pub mod position {
             }
         }
 
-        pub fn update(&mut self, ind_move: ((usize, usize), (usize, usize)), coord_move: &str) -> Result<Vec<((usize, usize), (usize, usize))>, ModuleError> {
+        pub fn update(&mut self, ind_move: ((usize, usize), (usize, usize)), coord_move: &str) -> Result<Vec<((usize, usize), (usize, usize))>, UpdateError> {
             let mt = match self.validate_move_possibility(coord_move) {
-                Err(rr) => return Err(ModuleError::ImpossibleMove(rr)),
+                Err(rr) => return Err(UpdateError::ImpossibleMove(rr)),
                 Ok(mt) => mt
             };
             let piece = self.index_to_piece(ind_move.0).unwrap(); //existence already checked at validate_move_possibility
@@ -494,7 +493,7 @@ pub mod position {
                     self.since_pawn_major = 0;
                     let rest_ind = match self.add_rest(cp) {
                         Ok(t) => t,
-                        Err(rr) => return Err(ModuleError::MoveError(MoveError::CleaningError(rr)))
+                        Err(rr) => return Err(UpdateError::CleaningError(rr))
                     };
                     moves.push((ind_move.1, rest_ind));
                     self.fields[sfr][sfs] = Piece::None;
@@ -504,11 +503,11 @@ pub mod position {
                 MoveType::EnPassant(bind) => {
                     let beaten_piece = match self.index_to_piece(bind) {
                         Some(i) => i,
-                        None => return Err(ModuleError::MoveError(MoveError::ImpossiblePosition))
+                        None => return Err(UpdateError::EnpassantMissing)
                     };
                     let rest_ind = match self.add_rest(beaten_piece) {
                         Ok(t) => t,
-                        Err(rr) => return Err(ModuleError::MoveError(MoveError::CleaningError(rr)))
+                        Err(rr) => return Err(UpdateError::CleaningError(rr))
                     };
                     moves.push((bind, rest_ind));
                     self.fields[bind.0][bind.1] = Piece::None;
@@ -522,7 +521,7 @@ pub mod position {
                         Piece::Queen(true) => (coordinates_to_index("e1").unwrap(), coordinates_to_index("c1").unwrap(), coordinates_to_index("a1").unwrap(), coordinates_to_index("d1").unwrap()),
                         Piece::King(false) => (coordinates_to_index("e8").unwrap(), coordinates_to_index("g8").unwrap(), coordinates_to_index("h8").unwrap(), coordinates_to_index("f8").unwrap()),
                         Piece::Queen(false) => (coordinates_to_index("e8").unwrap(), coordinates_to_index("c8").unwrap(), coordinates_to_index("a8").unwrap(), coordinates_to_index("d8").unwrap()),
-                        _ => return Err(ModuleError::Other)
+                        _ => return Err(UpdateError::Other)
                     };
                     self.fields[ks.0][ks.1] = Piece::None;
                     self.fields[ke.0][ke.1] = Piece::King(p.piece_to_color());
@@ -569,7 +568,6 @@ pub mod position {
                 match (self.en_passant.as_str(), piece) {
                     ("-",  _) => {},
                     (mm, Piece::Pawn(_)) => {
-                        println!("{}", mm);
                         if mm == cmove.split_at(2).1 {
                             let mut ind_mm = coordinates_to_index(mm)?;
                             if ind_mm.0 == 2 {

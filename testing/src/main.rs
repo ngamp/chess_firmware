@@ -39,10 +39,37 @@ fn main() {
     magnet.on();
     delay::delayms(7000);
     magnet.off();*/
-    let a = position::Position::from_fen(
+    let mut a = position::Position::from_fen(
         "r3k2r/pp2ppbp/4b3/2p5/4q1P1/2P1B2P/PP2P3/RN1QK1NR w KQkq - 0 13",
-    );
-    for i in a.unwrap().fields {
+    ).unwrap();
+    for i in a.fields {
         println!("{:?}", i)
     }
+    println!("h");
+    a.update(((5, 7), (3, 5)), "e3c5").unwrap();
+    for i in a.fields {
+        println!("{:?}", i)
+    };
+    println!("h");
+    a.update(((0, 7), (0, 9)), "e8g8").unwrap();
+    for i in a.fields {
+        println!("{:?}", i)
+    };
+    println!("h");
+    a.update(((4, 9), (3, 9)), "g4g5").unwrap();
+    for i in a.fields {
+        println!("{:?}", i)
+    };
+    println!("h");
+    a.update(((1, 10), (3, 10)), "h7h5").unwrap();
+    for i in a.fields {
+        println!("{:?}", i)
+    };
+    println!("h");
+    a.update(((3, 9), (2, 10)), "g5h6").unwrap();
+    for i in a.fields {
+        println!("{:?}", i)
+    };
+    println!("{:?}", a)
+
 }
