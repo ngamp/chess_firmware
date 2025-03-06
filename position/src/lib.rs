@@ -509,7 +509,7 @@ pub mod position {
             }
         }
 
-        pub fn update(&mut self, ind_move: ((usize, usize), (usize, usize)), coord_move: &str) -> Result<(State, Vec<((usize, usize), (usize, usize))>), UpdateError> {
+        pub fn update(&mut self, ind_move: ((usize, usize), (usize, usize)), coord_move: &str) -> Result<(State, Vec<(PFIType)>), UpdateError> {
             let mt = match self.validate_move_possibility(coord_move) {
                 Err(rr) => return Err(UpdateError::ImpossibleMove(rr)),
                 Ok(mt) => mt
@@ -556,13 +556,13 @@ pub mod position {
                 _ => {}
             };
             //update fields (and since_pawn_major)
-            let mut moves: Vec<((usize, usize), (usize, usize))> = Vec::new();
+            let mut moves: Vec<PFIType> = Vec::new();
             let ((sfr, sfs), (efr, efs)) = ind_move;
             match mt {
                 MoveType::Normal(p) => {
                     self.fields[efr][efs] = p;
                     self.fields[sfr][sfs] = Piece::None;
-                    moves.push(ind_move);
+                    moves.push(PFIType::NMove(ind_move);
                 },
                 MoveType::Capturing(p, cp) => {
                     self.since_pawn_major = 0;
