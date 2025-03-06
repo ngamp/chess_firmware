@@ -186,6 +186,14 @@ pub mod position {
     }
 
     #[derive(Debug)]
+    pub enum PFIType {
+        Knight((usize, usize), (usize, usize)),
+        Cleaning((usize, usize), (usize, usize)),
+        NMove((usize, usize), (usize, usize)),
+        Custom((usize, usize), (usize, usize))
+    }
+
+    #[derive(Debug)]
     pub enum UpdateError {
         ImpossibleMove(MoveError),
         EnpassantMissing,
