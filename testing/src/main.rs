@@ -46,32 +46,35 @@ fn main() {
         println!("{:?}", i)
     }
     println!("h");
-    a.update(((5, 7), (3, 5)), "e3c5").unwrap();
+    let res = a.update(((5, 7), (3, 5)), "e3c5");
     for i in a.fields {
         println!("{:?}", i)
     };
-    println!("h");
-    a.update(((0, 7), (0, 9)), "e8g8").unwrap();
+    println!("{:?}", res);
+    let res = a.update(((0, 7), (0, 9)), "e8g8").unwrap();
     for i in a.fields {
         println!("{:?}", i)
     };
-    println!("h");
-    a.update(((4, 9), (3, 9)), "g4g5").unwrap();
+    println!("{:?}", res);
+    let res = a.update(((4, 9), (3, 9)), "g4g5").unwrap();
     for i in a.fields {
         println!("{:?}", i)
     };
-    println!("h");
-    a.update(((1, 10), (3, 10)), "h7h5").unwrap();
+    println!("{:?}", res);
+    let res = a.update(((1, 10), (3, 10)), "h7h5").unwrap();
     for i in a.fields {
         println!("{:?}", i)
     };
-    println!("h");
-    a.update(((3, 9), (2, 10)), "g5h6").unwrap();
+    println!("{:?}", res);
+    let res = a.update(((3, 9), (2, 10)), "g5h6").unwrap();
     for i in a.fields {
         println!("{:?}", i)
     };
+    println!("{:?}", res);
     println!("{:?}", a);
 
-    println!("{}", std::env::consts::ARCH)
+    println!("{}", std::env::consts::ARCH);
+
+    
 
 }

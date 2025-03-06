@@ -14,7 +14,7 @@ const  WELCOME_MESSAGE: &str = "Stockfish dev-20250126-f50d52aa by the Stockfish
 #[cfg(target_arch = "x86_64")] 
 const PATH_TO_STOCKFISH: &str = "../stockfish/sfs/sf_ubuntu";
 #[cfg(target_arch = "x86_64")] 
-const  WELCOME_MESSAGE: &str = "Stockfish dev-20250126-f50d52aa by the Stockfish developers (see AUTHORS file)\nreadyok\n";
+const  WELCOME_MESSAGE: &str = "Stockfish 17 by the Stockfish developers (see AUTHORS file)\nreadyok\n";
 
 
 pub fn get_move(fen: &str, time: u32) -> Result<SFResults, SFErrors> {
@@ -30,7 +30,7 @@ pub fn get_move(fen: &str, time: u32) -> Result<SFResults, SFErrors> {
         Some(sfout) => sfout,
         None => return Err(SFErrors::SFOutCreation),
     };
-    let mut output_buffer: [u8; WELCOME_MESSAGE.len()] = [0; 87];
+    let mut output_buffer: [u8; WELCOME_MESSAGE.len()] = [0; WELCOME_MESSAGE.len()];
     match sfin.write_all("isready\n".as_bytes()) {
         Ok(_) => {}
         Err(rr) => return Err(SFErrors::SFInWriting(rr)),
@@ -125,6 +125,7 @@ pub enum SFErrors {
 }
 
 #[derive(Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub enum SFResults {
     Normal(String),
     Stalemate,
@@ -139,5 +140,29 @@ fn new_sf() -> Result<Child, SFErrors> {
     {
         Ok(ch) => Ok(ch),
         Err(rr) => Err(SFErrors::CreationError(rr)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::{get_move, SFResults};
+
+    #[test]
+    fn it_works() {
+        let result = get_move("8/1q6/5k2/K7/Pp6/8/8/8 w - - 1 54", 1000);
+        assert_eq!(result.unwrap(), SFResults::Stalemate);
+    }
+
+    #[test]
+    fn it_works2() {
+        let result = get_move("8/3R4/3kp3/1Q6/1P6/8/1PK1P3/8 b - - 8 44", 1000);
+        assert_eq!(result.unwrap(), SFResults::Mate);
+    }
+
+    #[test]
+    fn it_works3() {
+        let result = get_move("r4rk1/pp2ppb1/4b2P/2B5/4q3/2P4P/PP2P3/RN1QK1NR b KQ - 0 15", 1000);
+        assert_eq!(result.unwrap(), SFResults::Normal("f8d8".to_string()));
     }
 }

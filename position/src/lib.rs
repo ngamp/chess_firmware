@@ -1,6 +1,7 @@
 pub mod position {
 
     use std::{collections::HashMap, num::ParseIntError};
+    use stockfish::{get_move, SFResults, SFErrors};
 
 
     #[derive(Debug)]
@@ -16,12 +17,14 @@ pub mod position {
         None
     }
 
+    #[derive(Debug)]
     pub enum DrawR {
         Repetition,
         FiftyMove,
         Stalemate
     }
 
+    #[derive(Debug)]
     pub enum State {
         Normal,
         Mate(bool),
@@ -187,6 +190,7 @@ pub mod position {
         ImpossibleMove(MoveError),
         EnpassantMissing,
         CleaningError(CleaningError),
+        SFError(SFErrors),
         Other
     }
 
@@ -227,6 +231,69 @@ pub mod position {
                 rochade: [Piece::King(true),Piece::Queen(true),Piece::King(false),Piece::Queen(false)],
                 since_pawn_major: 0
             }
+        }
+
+        pub fn to_fen(&self) -> String {
+            let mut res = String::new();
+    
+            //get piece position
+            for i in 0..8 {
+                let mut row = String::new();
+                let lis = self.fields[i];
+                let mut empty_counter = 0;
+                for field in &lis[3..11] {
+                    match field {
+                        Piece::None => {
+                            empty_counter += 1;
+                        },
+                        _ => {
+                            if empty_counter > 0 {
+                            row.push_str(&(empty_counter.to_string()));
+                            }
+                            empty_counter = 0;
+                            row.push_str(&field.piece_to_letter());
+                        }
+                    };
+                }
+                if empty_counter > 0 {
+                    row.push_str(&(empty_counter.to_string()));
+                }
+                if i < 7 {
+                    row.push_str("/");
+                } else {
+                    row.push_str(" ");
+                }
+                res.push_str(&row)
+            };
+    
+            //get move-right
+            if self.colorw {
+                res.push_str("w ");
+            } else {
+                res.push_str("b ");
+            }
+    
+            //rochade-rights
+            let mut rochade_res = String::new();
+            for piece in self.rochade {
+                rochade_res.push_str(&piece.piece_to_letter());
+            }
+            if rochade_res == "".to_string() {
+                rochade_res.push_str("-");
+            }
+            res.push_str(&rochade_res);
+    
+            //en_passant?
+            res.push_str(&format!(" {}", self.en_passant));
+    
+            //moves (50-moves-rule)
+            res.push_str(&format!(" {}", self.since_pawn_major / 2));
+    
+            //movenumber
+            res.push_str(&format!(" {}", (self.moves / 2) + 1));
+    
+    
+            res
         }
 
         pub fn from_fen(fen: &str) -> Result<Self, MoveError> {
@@ -434,7 +501,7 @@ pub mod position {
             }
         }
 
-        pub fn update(&mut self, ind_move: ((usize, usize), (usize, usize)), coord_move: &str) -> Result<Vec<((usize, usize), (usize, usize))>, UpdateError> {
+        pub fn update(&mut self, ind_move: ((usize, usize), (usize, usize)), coord_move: &str) -> Result<(State, Vec<((usize, usize), (usize, usize))>), UpdateError> {
             let mt = match self.validate_move_possibility(coord_move) {
                 Err(rr) => return Err(UpdateError::ImpossibleMove(rr)),
                 Ok(mt) => mt
@@ -531,7 +598,17 @@ pub mod position {
                     moves.push((rs, re));
                 }
             };
-            Ok(moves)
+            let state = match get_move(&self.to_fen(), 1000) {
+                Err(rr) => return Err(UpdateError::SFError(rr)),
+                Ok(s) => {
+                    match s {
+                        SFResults::Normal(_) => State::Normal,
+                        SFResults::Stalemate => State::Draw(DrawR::Stalemate),
+                        SFResults::Mate => State::Mate(!self.colorw)
+                    }
+                }
+            };
+            Ok((state, moves))
         }
 
         pub fn validate_move_possibility(&self, cmove: &str) -> Result<MoveType, MoveError> {
@@ -638,68 +715,7 @@ pub mod position {
         Ok((num, lett))
     }
 
-    pub fn get_fen(position: &Position) -> String {
-        let mut res = String::new();
-
-        //get piece position
-        for i in 0..8 {
-            let mut row = String::new();
-            let lis = &position.fields[i];
-            let mut empty_counter = 0;
-            for field in &lis[3..11] {
-                match field {
-                    Piece::None => {
-                        empty_counter += 1;
-                    },
-                    _ => {
-                        if empty_counter > 0 {
-                        row.push_str(&(empty_counter.to_string()));
-                        }
-                        empty_counter = 0;
-                        row.push_str(&field.piece_to_letter());
-                    }
-                };
-            }
-            if empty_counter > 0 {
-                row.push_str(&(empty_counter.to_string()));
-            }
-            if i < 7 {
-                row.push_str("/");
-            } else {
-                row.push_str(" ");
-            }
-            res.push_str(&row)
-        };
-
-        //get move-right
-        if position.colorw {
-            res.push_str("w ");
-        } else {
-            res.push_str("b ");
-        }
-
-        //rochade-rights
-        let mut rochade_res = String::new();
-        for piece in &position.rochade {
-            rochade_res.push_str(&piece.piece_to_letter());
-        }
-        if rochade_res == "".to_string() {
-            rochade_res.push_str("-");
-        }
-        res.push_str(&rochade_res);
-
-        //en_passant?
-        res.push_str(&format!(" {}", position.en_passant));
-
-        //moves (50-moves-rule)
-        res.push_str(&format!(" {}", position.since_pawn_major / 2));
-
-        //movenumber
-        res.push_str(&format!(" {}", (position.moves / 2) + 1));
-
-
-        res
-    }
+    
 }
 
 #[cfg(test)]
@@ -714,7 +730,7 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let result = position::get_fen(&get_position());
+        let result = get_position().to_fen();
         assert_eq!(result, String::from("rnbqkbnr/1p2pppp/8/p1ppP3/P7/8/1PP1PPPP/RNBQKBNR w KQkq d6 0 6"));
     }
 
