@@ -190,6 +190,7 @@ pub mod position {
         Knight((usize, usize), (usize, usize)),
         Cleaning((usize, usize), (usize, usize)),
         NMove((usize, usize), (usize, usize)),
+        Rochade(((usize, usize), (usize, usize)), ((usize, usize), (usize, usize))),
         Custom((usize, usize), (usize, usize))
     }
 
@@ -509,7 +510,7 @@ pub mod position {
             }
         }
 
-        pub fn update(&mut self, ind_move: ((usize, usize), (usize, usize)), coord_move: &str) -> Result<(State, Vec<(PFIType)>), UpdateError> {
+        pub fn update(&mut self, ind_move: ((usize, usize), (usize, usize)), coord_move: &str) -> Result<(State, Vec<PFIType>), UpdateError> {
             let mt = match self.validate_move_possibility(coord_move) {
                 Err(rr) => return Err(UpdateError::ImpossibleMove(rr)),
                 Ok(mt) => mt
@@ -562,7 +563,7 @@ pub mod position {
                 MoveType::Normal(p) => {
                     self.fields[efr][efs] = p;
                     self.fields[sfr][sfs] = Piece::None;
-                    moves.push(PFIType::NMove(ind_move));
+                    moves.push(PFIType::NMove(ind_move.0, ind_move.1));
                 },
                 MoveType::Capturing(p, cp) => {
                     self.since_pawn_major = 0;
@@ -570,10 +571,10 @@ pub mod position {
                         Ok(t) => t,
                         Err(rr) => return Err(UpdateError::CleaningError(rr))
                     };
-                    moves.push((ind_move.1, rest_ind));
+                    moves.push(PFIType::Cleaning(ind_move.1, rest_ind));
                     self.fields[sfr][sfs] = Piece::None;
                     self.fields[efr][efs] = p;
-                    moves.push(ind_move);
+                    moves.push(PFIType::NMove(ind_move.0, ind_move.1));
                 },
                 MoveType::EnPassant(bind) => {
                     let beaten_piece = match self.index_to_piece(bind) {
@@ -584,11 +585,11 @@ pub mod position {
                         Ok(t) => t,
                         Err(rr) => return Err(UpdateError::CleaningError(rr))
                     };
-                    moves.push((bind, rest_ind));
+                    moves.push(PFIType::Cleaning(bind, rest_ind));
                     self.fields[bind.0][bind.1] = Piece::None;
                     self.fields[sfr][sfs] = Piece::None;
                     self.fields[efr][efs] = Piece::Pawn(!beaten_piece.piece_to_color());
-                    moves.push(ind_move);
+                    moves.push(PFIType::NMove(ind_move.0, ind_move.1));
                 },
                 MoveType::Rochade(p) => {
                     let (ks, ke, rs, re) = match p {
@@ -600,10 +601,9 @@ pub mod position {
                     };
                     self.fields[ks.0][ks.1] = Piece::None;
                     self.fields[ke.0][ke.1] = Piece::King(p.piece_to_color());
-                    moves.push((ks, ke));
                     self.fields[rs.0][rs.1] = Piece::None;
                     self.fields[re.0][re.1] = Piece::Rook(p.piece_to_color());
-                    moves.push((rs, re));
+                    moves.push(PFIType::Rochade((ks, ke),(rs, re)));
                 }
             };
             let state = match get_move(&self.to_fen(), 1000) {
