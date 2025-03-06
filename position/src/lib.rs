@@ -562,7 +562,7 @@ pub mod position {
                 MoveType::Normal(p) => {
                     self.fields[efr][efs] = p;
                     self.fields[sfr][sfs] = Piece::None;
-                    moves.push(PFIType::NMove(ind_move);
+                    moves.push(PFIType::NMove(ind_move));
                 },
                 MoveType::Capturing(p, cp) => {
                     self.since_pawn_major = 0;
