@@ -70,6 +70,8 @@ fn main() {
     for i in a.fields {
         println!("{:?}", i)
     };
-    println!("{:?}", a)
+    println!("{:?}", a);
+
+    println!("{}", std::env::consts::ARCH)
 
 }

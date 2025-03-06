@@ -5,9 +5,17 @@ use std::{
     time::Duration,
 };
 
-const PATH_TO_STOCKFISH: &str = "../stockfish/sf";
-const WELCOME_MESSAGE: &str =
-    "Stockfish dev-20250126-f50d52aa by the Stockfish developers (see AUTHORS file)\nreadyok\n";
+#[cfg(target_arch = "arm")]
+const PATH_TO_STOCKFISH: &str = "../stockfish/sfs/stockfish_raspi";
+#[cfg(target_arch = "arm")]
+const  WELCOME_MESSAGE: &str = "Stockfish dev-20250126-f50d52aa by the Stockfish developers (see AUTHORS file)\nreadyok\n";
+
+
+#[cfg(target_arch = "x86_64")] 
+const PATH_TO_STOCKFISH: &str = "../stockfish/sfs/sf_ubuntu";
+#[cfg(target_arch = "x86_64")] 
+const  WELCOME_MESSAGE: &str = "Stockfish dev-20250126-f50d52aa by the Stockfish developers (see AUTHORS file)\nreadyok\n";
+
 
 pub fn get_move(fen: &str, time: u32) -> Result<SFResults, SFErrors> {
     let mut sf = match new_sf() {
@@ -59,16 +67,28 @@ pub fn get_move(fen: &str, time: u32) -> Result<SFResults, SFErrors> {
         }
         Err(rr) => return Err(SFErrors::SFOutReadingParsing(rr)),
     };
-    let n = match res.trim_ascii_end().split("\n").last() {
+    let res_list: Vec<&str> = res.trim_ascii_end().split("\n").collect();
+    let n = match res_list.last() {
         Some(s) => {
             //println!("{}", s);
-            s
+            *s
         }
         None => return Err(SFErrors::SFProcessing),
     };
     //println!("{:?}", n);
     match n {
-        "bestmove (none)" => return Ok(SFResults::Stalemate),
+        "bestmove (none)" => {
+            match res_list[res_list.len() - 2].split(" ").collect::<Vec<&str>>().iter().nth_back(1) {
+                Some(v) => {
+                    match *v {
+                        "mate" => Ok(SFResults::Mate),
+                        "cp" => Ok(SFResults::Stalemate),
+                        _ => Err(SFErrors::SFProcessing)
+                    }
+                },
+                None => Err(SFErrors::SFProcessing)
+            }
+        },
         _ => {
             if n.chars().count() == 25 {
                 let wlist: Vec<&str> = n.split_whitespace().collect();
@@ -108,6 +128,7 @@ pub enum SFErrors {
 pub enum SFResults {
     Normal(String),
     Stalemate,
+    Mate
 }
 
 fn new_sf() -> Result<Child, SFErrors> {
