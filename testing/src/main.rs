@@ -3,7 +3,7 @@ use mctrl::{motor::diagonal, *};
 use position::position;
 
 fn main() {
-    /*let mut m1 = motor::Mtr::new(true, 5, 6, 13).unwrap();
+    let mut m1 = motor::Mtr::new(true, 5, 6, 13).unwrap();
     m1.enable_motor();
     m1.move_steps(1600, true, 2.5).unwrap();
     delay::delayms(200);
@@ -73,28 +73,5 @@ fn main() {
     println!("{:?}", res);
     println!("{:?}", a);
 
-    println!("{}", std::env::consts::ARCH);*/
-
-    let mut neue_position = position::Position::new_reset();
-    //println!("{:?}", neue_position);
-    let zeichenkette = neue_position.to_fen();
-    println!("{}", zeichenkette);
-    let mut positions = position::Position::from_fen("r3k2r/ppp1bppp/2nq1n2/5P2/8/2N1BN2/PP3PPP/R3K2R b KQkq - 0 2").unwrap();
-    println!("{:?}", positions);
-    for i in positions.fields {
-        println!("{:?}", i)
-    };
-    println!("        ");
-    positions.add_rest(position::Piece::Rook(true));
-    for i in positions.fields {
-        println!("{:?}", i)
-    };
-    println!("{:?}", positions.validate_move_possibility("f6g6"));
-    println!("{}", positions.to_fen());
-    positions.update(((2, 6), (4, 5)), "d6c4").unwrap();
-    println!("{:?}", positions.to_fen());
-
-
-    
-
+    println!("{}", std::env::consts::ARCH);
 }
