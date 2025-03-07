@@ -38,7 +38,7 @@ fn main() {
     let mut magnet = magnet::Magnet::new(26).unwrap();
     magnet.on();
     delay::delayms(7000);
-    magnet.off();*/
+    magnet.off();
     let mut a = position::Position::from_fen(
         "r3k2r/pp2ppbp/4b3/2p5/4q1P1/2P1B2P/PP2P3/RN1QK1NR w KQkq - 0 13",
     ).unwrap();
@@ -73,7 +73,27 @@ fn main() {
     println!("{:?}", res);
     println!("{:?}", a);
 
-    println!("{}", std::env::consts::ARCH);
+    println!("{}", std::env::consts::ARCH);*/
+
+    let mut neue_position = position::Position::new_reset();
+    //println!("{:?}", neue_position);
+    let zeichenkette = neue_position.to_fen();
+    println!("{}", zeichenkette);
+    let mut positions = position::Position::from_fen("r3k2r/ppp1bppp/2nq1n2/5P2/8/2N1BN2/PP3PPP/R3K2R b KQkq - 0 2").unwrap();
+    println!("{:?}", positions);
+    for i in positions.fields {
+        println!("{:?}", i)
+    };
+    println!("        ");
+    positions.add_rest(position::Piece::Rook(true));
+    for i in positions.fields {
+        println!("{:?}", i)
+    };
+    println!("{:?}", positions.validate_move_possibility("f6g6"));
+    println!("{}", positions.to_fen());
+    positions.update(((2, 6), (4, 5)), "d6c4").unwrap();
+    println!("{:?}", positions.to_fen());
+
 
     
 

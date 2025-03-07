@@ -138,7 +138,7 @@ pub mod position {
                     }
                 },
                 Piece::Knight(_) => {
-                    if (self::letter_to_int(sl) + self::to_int(sn) as u32)%2 != (self::letter_to_int(el) + self::to_int(en) as u32)%2 {
+                    if (self::letter_to_int(sl) + self::to_int(sn) as u32)%2 != (self::letter_to_int(el) + self::to_int(en) as u32)%2 && !(sl == el || sn == en) {
                         true
                     } else {
                         false
@@ -517,6 +517,7 @@ pub mod position {
             };
             let piece = self.index_to_piece(ind_move.0).unwrap(); //existence already checked at validate_move_possibility
             // inverting color
+            println!("{:?}", piece);
             self.colorw = !self.colorw;
             //adding 1 move 
             self.moves += 1;
