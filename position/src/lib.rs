@@ -2,6 +2,7 @@ pub mod position {
 
     use std::{collections::HashMap, num::ParseIntError};
     use stockfish::{get_move, SFResults, SFErrors};
+    use mctrl::motor::{self, MotorInstructions};
 
 
     #[derive(Debug)]
@@ -210,6 +211,10 @@ pub mod position {
     }
 
     #[derive(Debug)]
+    pub enum PFError {
+
+    }
+    #[derive(Debug)]
     #[derive(Clone)]
     pub struct Position {
         pub colorw: bool,
@@ -218,10 +223,7 @@ pub mod position {
         pub en_passant: String,
         pub rochade: [Piece;4],
         pub since_pawn_major: u32
-    }
-
-
-    
+    }    
 
     impl Position {
         pub fn new_reset() -> Self {
@@ -702,6 +704,11 @@ pub mod position {
             } else {
                 Some(self.fields[ind.0][ind.1])
             }
+        }
+
+
+        pub fn pathfinding(&self, vmove: &Vec<PFIType>) -> Result<motor::MotorInstructions, PFError> {
+            todo!();
         }
     }
 

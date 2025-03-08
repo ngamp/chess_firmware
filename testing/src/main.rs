@@ -35,7 +35,7 @@ fn main() {
 
 
 
-    let mut magnet = magnet::Magnet::new(26).unwrap();
+    let mut magnet = motor::Magnet::new(26).unwrap();
     magnet.on();
     delay::delayms(7000);
     magnet.off();
