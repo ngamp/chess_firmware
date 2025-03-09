@@ -3,7 +3,7 @@ use mctrl::{motor::diagonal, *};
 use position::position;
 
 fn main() {
-    let mut m1 = motor::Mtr::new(true, 5, 6, 13).unwrap();
+    /*let mut m1 = motor::Mtr::new(true, 5, 6, 13).unwrap();
     m1.enable_motor();
     m1.move_steps(1600, true, 2.5).unwrap();
     delay::delayms(200);
@@ -73,5 +73,8 @@ fn main() {
     println!("{:?}", res);
     println!("{:?}", a);
 
-    println!("{}", std::env::consts::ARCH);
+    println!("{}", std::env::consts::ARCH);*/
+
+    let a = mctrl::motor::MotorInstructions::field_from_home((4, 3), 3.0);
+    println!("{:?}", a)
 }

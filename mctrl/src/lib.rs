@@ -2,11 +2,10 @@ const MMR: f32 = 14.135;
 const MMF: f32 = 45.0;
 
 pub mod motor {
-    use std::os::unix::fs::FileExt;
 
     use rppal::gpio::{Error, OutputPin, Gpio};
 
-    use crate::delay;
+    use crate::{delay, MMF, MMR};
 
     #[derive(Debug)]
     pub enum MtrErrors {
@@ -150,6 +149,7 @@ pub mod motor {
         }
     }
 
+    #[derive(Debug)]
     pub enum MotorMoveType {
         StraightX(MotorMove),
         StraightY(MotorMove),
@@ -157,6 +157,7 @@ pub mod motor {
         Adjust(MotorMove)
     }
 
+    #[derive(Debug)]
     pub struct MotorMove {
         pub dir: bool,
         pub len: u32,
@@ -174,6 +175,7 @@ pub mod motor {
         }
     }
 
+    #[derive(Debug)]
     pub struct MotorInstructions {
         pub instructions: Vec<MotorMoveType>
     }
@@ -187,10 +189,21 @@ pub mod motor {
             self.instructions.append(&mut mi.instructions);
         }
 
-        pub fn field_from_home(field: (usize, usize)) -> Self {
+        pub fn field_from_home(field: (usize, usize), speed: f32) -> Self {
             let mut res = Vec::new();
             let coord = ind_to_relative_ind(field);
-            
+            let xmovement = ((MMF*coord.0)/MMR)*200.0;
+            let ymovement = ((MMF*coord.1)/MMR)*200.0;
+            let mut dir = true;
+            if xmovement < 0.0 {
+                dir = false;
+            };
+            res.push(MotorMoveType::StraightX(MotorMove::new_values(dir, xmovement.abs() as u32, true, speed)));
+            dir = true;
+            if ymovement < 0.0 {
+                dir = false;
+            };
+            res.push(MotorMoveType::StraightX(MotorMove::new_values(dir, ymovement.abs() as u32, true, speed)));
             MotorInstructions { instructions: res }
         }
     }
