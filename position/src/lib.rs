@@ -2,7 +2,7 @@ pub mod position {
 
     use std::{collections::HashMap, num::ParseIntError};
     use stockfish::{get_move, SFResults, SFErrors};
-    use mctrl::motor::{self, MotorInstructions};
+    use mctrl::{motor::{self, Field, MotorInstructions, MotorMove, MotorMoveType}, NMOVESPEED};
 
 
     #[derive(Debug)]
@@ -212,7 +212,7 @@ pub mod position {
 
     #[derive(Debug)]
     pub enum PFError {
-
+        MoveDoesNotFitType(PFIType)
     }
     #[derive(Debug)]
     #[derive(Clone)]
@@ -708,7 +708,21 @@ pub mod position {
 
 
         pub fn pathfinding(&self, vmove: &Vec<PFIType>) -> Result<motor::MotorInstructions, PFError> {
-            todo!();
+            /*let mut res = MotorInstructions::new();
+            for mov in vmove {
+                match *mov {
+                    PFIType::NMove(start, end) => {
+                        if start.0 == end.0 || start.1 == end.1 {
+                            res.append(MotorInstructions::field_to_field(Field::ind_to_relative_ind(start), Field::ind_to_relative_ind(end), NMOVESPEED));
+                        } else if start.0.abs_diff(end.0) == start.1.abs_diff(end.1) {
+
+                        } else {
+                            return Err(PFError::MoveDoesNotFitType(*mov))
+                        }
+                    }
+                }
+            };*/
+            todo!()
         }
     }
 

@@ -1,11 +1,17 @@
 const MMR: f32 = 14.135;
 const MMF: f32 = 45.0;
 
+pub const HOMINGSPEED: f32 = 5.0;
+pub const NMOVESPEED: f32 = 2.0;
+
 pub mod motor {
+
+    use core::f32;
+    use std::ops::Sub;
 
     use rppal::gpio::{Error, OutputPin, Gpio};
 
-    use crate::{delay, MMF, MMR};
+    use crate::{delay, HOMINGSPEED, MMF, MMR};
 
     #[derive(Debug)]
     pub enum MtrErrors {
@@ -189,29 +195,110 @@ pub mod motor {
             self.instructions.append(&mut mi.instructions);
         }
 
-        pub fn field_from_home(field: (usize, usize), speed: f32) -> Self {
+        pub fn from_vfield(field: Field, speed: f32) -> Self {
             let mut res = Vec::new();
-            let coord = ind_to_relative_ind(field);
-            let xmovement = ((MMF*coord.0)/MMR)*200.0;
-            let ymovement = ((MMF*coord.1)/MMR)*200.0;
-            let mut dir = true;
-            if xmovement < 0.0 {
-                dir = false;
+            let xlen = (((MMF*field.0)/MMR)*200.0) as i32;
+            let ylen = (((MMF*field.1)/MMR)*200.0) as i32;
+            if xlen != 0 {
+                res.push(MotorMoveType::StraightX(steps_to_motormove(xlen, speed)));
             };
-            res.push(MotorMoveType::StraightX(MotorMove::new_values(dir, xmovement.abs() as u32, true, speed)));
-            dir = true;
-            if ymovement < 0.0 {
-                dir = false;
+            if ylen!= 0 {
+                res.push(MotorMoveType::StraightY(steps_to_motormove(ylen, speed)));
+            }
+            Self { instructions:  res}
+        }
+
+        pub fn to_home(m1: &Mtr, m2: &Mtr) -> Self {
+            let x = -m1.steps_from_home;
+            let y = -m2.steps_from_home;
+            Self { instructions: vec![MotorMoveType::StraightX(steps_to_motormove(x, HOMINGSPEED)), MotorMoveType::StraightY(steps_to_motormove(y, HOMINGSPEED))] }
+        }
+
+        pub fn field_to_field(f1: Field, f2: Field, speed: f32) -> Self {
+            let f = f2-f1;
+            Self::from_vfield(f, speed)
+        }
+
+        pub fn home_to_field(f: Field) -> Self {
+            Self::from_vfield(f, HOMINGSPEED)
+        }
+
+        pub fn diagonal(f1: Field, f2: Field, speed: f32) -> Self {
+            let mut res = Vec::new();
+            let vf = f2 - f1;
+            let mut len = (((MMF*(vf.0.abs()))/MMR)*200.0) as u32;
+            if vf.0.abs() < vf.1.abs() {
+                let ylen = (((MMF*(vf.1.abs() - vf.0.abs()))/MMR)*200.0) as u32;
+                res.push(MotorMoveType::StraightY(MotorMove::new_values(vf.1.is_sign_positive(), ylen, true, speed)));
             };
-            res.push(MotorMoveType::StraightX(MotorMove::new_values(dir, ymovement.abs() as u32, true, speed)));
-            MotorInstructions { instructions: res }
+            if vf.0.abs() > vf.1.abs() {
+                len = (((MMF*(vf.1.abs()))/MMR)*200.0) as u32;
+                let xlen = (((MMF*(vf.0.abs() - vf.1.abs()))/MMR)*200.0) as u32;
+                res.push(MotorMoveType::StraightX(MotorMove::new_values(vf.0.is_sign_positive(), xlen, true, speed)));
+            };
+            res.push(MotorMoveType::Diagonal(MotorMove::new_values(vf.0.is_sign_positive(), len, vf.1.is_sign_positive(), speed)));
+            return Self { instructions: res }
         }
     }
 
-    pub fn ind_to_relative_ind(ind: (usize, usize)) -> (f32, f32) {
-        let x: f32 = -6.5 + ind.0 as f32;
-        let y: f32 = -3.5 + ind.1 as f32;
-        (x, y)
+    pub struct Field(f32, f32);
+
+    impl Sub for Field {
+        type Output = Self;
+
+        fn sub(self, rhs: Self) -> Self::Output {
+            Self(self.0 - rhs.0, self.1 - rhs.1)
+        }
+    }
+
+    pub trait ToF32 {
+        fn to_f32(self) -> f32;
+    }
+
+    impl ToF32 for f32 {
+        fn to_f32(self) -> f32 {
+            self as f32
+        }
+    }
+
+    impl ToF32 for usize {
+        fn to_f32(self) -> f32 {
+            self as f32
+        }
+    }
+
+    impl ToF32 for u32 {
+        fn to_f32(self) -> f32 {
+            self as f32
+        }
+    }
+
+    impl ToF32 for i32 {
+        fn to_f32(self) -> f32 {
+            self as f32
+        }
+    }
+
+    impl Field {
+        pub fn from_tuple<T: ToF32>(t: (T, T)) -> Self {
+            Field(t.0.to_f32(), t.1.to_f32())
+        }
+
+        pub fn ind_to_relative_ind<T: ToF32>(ind: (T, T)) -> Self {
+            let x: f32 = -6.5 + ind.0.to_f32();
+            let y: f32 = -3.5 + ind.1.to_f32();
+            Field(x, y)
+        }
+    }
+
+    pub fn steps_to_motormove(ind: i32, speed: f32) -> MotorMove {
+        let xmovement = ind;
+        let xmovement = if xmovement.is_negative() {
+            MotorMove::new_values(false, xmovement.abs() as u32, true, speed)
+        } else {
+            MotorMove::new_values(true, xmovement as u32, true, speed)
+        };
+        xmovement
     }
 }
 
