@@ -1,5 +1,5 @@
 #![allow(unused_imports)]
-use mctrl::{motor::{diagonal, Field}, *};
+use mctrl::{motor::{diagonal, Field, PosNow}, *};
 use position::position;
 
 fn main() {
@@ -75,9 +75,14 @@ fn main() {
 
     println!("{}", std::env::consts::ARCH);*/
 
-    let a = motor::MotorInstructions::field_to_field(Field::from_tuple((2, -4)), Field::from_tuple((-3, -3)), 4.0);
-    let b = motor::MotorInstructions::diagonal(Field::from_tuple((0, 0)), Field::from_tuple((3, -2)), 3.0);
+    let a = motor::MotorInstructions::field_to_field(Field::ind_to_relative_ind((3, 5)), Field::from_tuple((-1.5, 2.5)), 4.0, false);
+    let b = motor::MotorInstructions::diagonal(Field::from_tuple((-0.5, -0.5)), Field::from_tuple((3.5, -4.5)), 3.0, true);
+    let os = motor::OffSet::new(Field::from_tuple((1, 1)), Some(false), Some(true));
+    let c = os.offset(&PosNow::new());
+    let d = os.resolve(&PosNow::new());
 
+    println!("{:?}", a);
     println!("{:?}", b);
-    println!("{:?}", a)
+    println!("{:?}", c);
+    println!("{:?}", d);
 }
