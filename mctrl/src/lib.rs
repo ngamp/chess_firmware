@@ -163,6 +163,10 @@ pub mod motor {
             PosNow { xmtr: 0, ymtr: 0}
         }
 
+        pub fn new_from_field(f: Field) -> Self {
+            PosNow { xmtr: fields_to_steps_signed(f.0), ymtr: fields_to_steps_signed(f.1) }
+        }
+
         pub fn update(&mut self, xaxis: bool, steps: u32, dir: bool) {
             if xaxis {
                 if dir {
@@ -183,10 +187,10 @@ pub mod motor {
             let mut x = 0.0;
             let mut y = 0.0;
             if self.xmtr != 0 {
-                x = ((((self.xmtr*200) as f32 * MMR)/MMF).ceil()) - 0.5;
+                x = ((((self.xmtr/200) as f32 * MMR)/MMF).ceil()) - 0.5;
             };
             if self.ymtr != 0 {
-                y = ((((self.ymtr*200) as f32 * MMR)/MMF).ceil()) - 0.5;
+                y = ((((self.ymtr/200) as f32 * MMR)/MMF).ceil()) - 0.5;
             };
             Field::from_tuple((x, y))
         }
@@ -235,12 +239,12 @@ pub mod motor {
 
         pub fn from_vfield(field: Field, speed: f32, magnet: bool) -> Self {
             let mut res = Vec::new();
-            let xlen = fields_to_steps(field.0) as i32;
-            let ylen = fields_to_steps(field.1) as i32;
+            let xlen = fields_to_steps_signed(field.0) as i32;
+            let ylen = fields_to_steps_signed(field.1) as i32;
             if xlen != 0 {
                 res.push(MotorMoveType::StraightX(steps_to_motormove(xlen, speed, magnet)));
             };
-            if ylen!= 0 {
+            if ylen != 0 {
                 res.push(MotorMoveType::StraightY(steps_to_motormove(ylen, speed, magnet)));
             }
             Self { instructions:  res}
@@ -252,9 +256,14 @@ pub mod motor {
             Self { instructions: vec![MotorMoveType::StraightX(steps_to_motormove(x, HOMINGSPEED, false)), MotorMoveType::StraightY(steps_to_motormove(y, HOMINGSPEED, false))] }
         }
 
-        pub fn field_to_field(f1: Field, f2: Field, speed: f32, magnet: bool) -> Self {
+        pub fn field_to_field(pos: &PosNow, f1: Field, f2: Field, speed: f32, magnet: bool) -> Self {
             let f = f2-f1;
-            Self::from_vfield(f, speed, magnet)
+            let mut res = Self::new();
+            if pos.sfh_to_field() != f1 {
+                res.append(Self::from_vfield(f1 - pos.sfh_to_field(), NOFIGURESPEED, false));
+            };
+            res.append(Self::from_vfield(f, speed, magnet));
+            res
         }
 
         pub fn home_to_field(f: Field) -> Self {
@@ -278,6 +287,12 @@ pub mod motor {
             return Self { instructions: res }
         }
 
+        pub fn print_out(&self) {
+            println!("MotorInstructions:");
+            for i in &self.instructions {
+                println!("  {:?}", i);
+            }
+        }
     }
 
     pub struct OffSet {
@@ -293,7 +308,7 @@ pub mod motor {
         pub fn offset(&self, pos: &PosNow) -> MotorInstructions {
             let mut res = Vec::new();
             if pos.sfh_to_field() != self.field {
-                res.append(&mut MotorInstructions::field_to_field(pos.sfh_to_field(), self.field, NOFIGURESPEED, false).instructions)
+                res.append(&mut MotorInstructions::field_to_field(pos, pos.sfh_to_field(), self.field, NOFIGURESPEED, false).instructions)
             };
             match (self.offset.0, self.offset.1) {
                 (Some(x), Some(y)) => {
@@ -316,7 +331,7 @@ pub mod motor {
         pub fn resolve(self, pos: &PosNow) -> MotorInstructions {
             let mut res = Vec::new();
             if pos.sfh_to_field() != self.field {
-                res.append(&mut MotorInstructions::field_to_field(pos.sfh_to_field(), self.field, NOFIGURESPEED, false).instructions)
+                res.append(&mut MotorInstructions::field_to_field(pos, pos.sfh_to_field(), self.field, NOFIGURESPEED, false).instructions)
             };
             match (self.offset.0, self.offset.1) {
                 (Some(x), Some(y)) => {
@@ -405,6 +420,9 @@ pub mod motor {
         (((MMF*f)/MMR)*200.0).round() as u32
     }
 
+    pub fn fields_to_steps_signed(f: f32) -> i32 {
+        (((MMF*f)/MMR)*200.0).round() as i32
+    }
     
 }
 

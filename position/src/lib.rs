@@ -708,15 +708,16 @@ pub mod position {
 
 
         pub fn pathfinding(&self, vmove: &Vec<PFIType>) -> Result<motor::MotorInstructions, PFError> {
-            todo!();/* 
+            todo!()
+            /*
             let mut res = MotorInstructions::new();
             for mov in vmove {
                 match *mov {
                     PFIType::NMove(start, end) => {
                         if start.0 == end.0 || start.1 == end.1 {
-                            res.append(MotorInstructions::field_to_field(Field::ind_to_relative_ind(start), Field::ind_to_relative_ind(end), NMOVESPEED));
+                            res.append(MotorInstructions::field_to_field(Field::ind_to_relative_ind(start), Field::ind_to_relative_ind(end), NMOVESPEED, true));
                         } else if start.0.abs_diff(end.0) == start.1.abs_diff(end.1) {
-                            res.append(MotorInstructions::diagonal(Field::ind_to_relative_ind(start), Field::ind_to_relative_ind(end), NMOVESPEED));
+                            res.append(MotorInstructions::diagonal(Field::ind_to_relative_ind(start), Field::ind_to_relative_ind(end), NMOVESPEED, true));
                         } else {
                             return Err(PFError::MoveDoesNotFitType(*mov))
                         }
