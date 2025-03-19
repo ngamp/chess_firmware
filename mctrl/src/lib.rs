@@ -5,11 +5,12 @@ pub const NMOVESPEED: f32 = 2.0;
 pub const OFFSETRATIO: f32 = 1.0/3.0;
 pub const OFFSETSPEED: f32 = 1.5;
 pub const NOFIGURESPEED: f32 = 4.5;
+pub const TRANSPORTSPEED: f32 = 2.0;
 
 pub mod motor {
 
     use core::f32;
-    use std::ops::Sub;
+    use std::ops::{Add, Sub};
 
     use rppal::gpio::{Error, OutputPin, Gpio};
 
@@ -382,6 +383,14 @@ pub mod motor {
         }
     }
 
+    impl Add for Field {
+        type Output = Self;
+
+        fn add(self, rhs: Self) -> Self::Output {
+            Self(self.0 + rhs.0, self.1 + rhs.1)
+        }
+    }
+
     pub trait ToF32 {
         fn to_f32(self) -> f32;
     }
@@ -419,6 +428,81 @@ pub mod motor {
             let x: f32 = -6.5 + ind.1.to_f32();
             let y: f32 = 3.5 - ind.0.to_f32();
             Field(x, y)
+        }
+
+        pub fn from_field_usize(f: FieldUsize) -> Self {
+            Field::ind_to_relative_ind(f.to_tuple())
+        }
+    }
+
+    #[derive(Debug)]
+    #[derive(PartialEq)]
+    #[derive(Clone, Copy)]
+    pub struct FieldUsize(pub usize, pub usize);
+
+    impl Sub for FieldUsize {
+        type Output = Self;
+
+        fn sub(self, rhs: Self) -> Self::Output {
+            Self(self.0 - rhs.0, self.1 - rhs.1)
+        }
+    }
+
+    impl Add for FieldUsize {
+        type Output = Self;
+
+        fn add(self, rhs: Self) -> Self::Output {
+            Self(self.0 + rhs.0, self.1 + rhs.1)
+        }
+    }
+
+    pub trait ToUsize {
+        fn to_usize(self) -> usize;
+    }
+
+    impl ToUsize for usize {
+        fn to_usize(self) -> usize {
+            self
+        }
+    }
+
+    impl ToUsize for u32 {
+        fn to_usize(self) -> usize {
+            self as usize
+        }
+    }
+
+    impl FieldUsize {
+        pub fn from_tuple<T: ToUsize, S: ToUsize>(t: (T, S)) -> Self {
+            Self(t.0.to_usize(), t.1.to_usize())
+        }
+
+        pub fn add_x(&self, x: usize) -> Self {
+            Self(self.0, self.1 + x)
+        }
+
+        pub fn add_y(&self, y: usize) -> Self {
+            Self(self.0 + y, self.1)
+        }
+
+        pub fn sub_x(&self, x: usize) -> Self {
+            if self.1 > x {
+                Self(self.0, self.1 - x)
+            } else {
+                self.clone()
+            }
+        }
+
+        pub fn sub_y(&self, y: usize) -> Self {
+            if self.1 > y {
+                Self(self.0 - y, self.1)
+            } else {
+                self.clone()
+            }
+        }
+
+        pub fn to_tuple(&self) -> (usize, usize) {
+            (self.0, self.1)
         }
     }
 

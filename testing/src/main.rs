@@ -1,5 +1,5 @@
 #![allow(unused_imports)]
-use mctrl::{motor::{diagonal, Field, PosNow}, *};
+use mctrl::{motor::{diagonal, Field, FieldUsize, PosNow}, *};
 use position::position;
 
 fn main() {
@@ -86,7 +86,9 @@ fn main() {
     let f2 = Field::ind_to_relative_ind((3, 3));
     let f3 = Field::ind_to_relative_ind((5, 5));
     let e = motor::MotorInstructions::field_to_field(f2, f3, 4.0, true, &mut PosNow::new_from_field(f1));
-    let bl = position::BitList::new(&position::Position::from_fen("r1b1kb1r/pppp1ppp/5q2/8/4P3/2NP4/PPP1QPPP/2KR1B1R w kq - 0 1").unwrap());
+    let bl = position::BitList::from_pos(&position::Position::from_fen("r1b1kb1r/pppp1ppp/5q2/8/4P3/2NP4/PPP1QPPP/2KR1B1R w kq - 0 1").unwrap());
+
+
 
     a.print_out();
     b.print_out();
@@ -94,4 +96,6 @@ fn main() {
     d.print_out();
     e.print_out();
     bl.print_out();
+
+    println!("bitlist: .count_area()  {}", bl.count_area(FieldUsize(0, 8), FieldUsize(5, 8)));
 }

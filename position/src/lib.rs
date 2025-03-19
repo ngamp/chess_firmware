@@ -1,8 +1,8 @@
 pub mod position {
 
-    use std::{collections::HashMap, num::ParseIntError};
+    use std::{collections::HashMap, num::ParseIntError, cmp::{min, max}};
     use stockfish::{get_move, SFResults, SFErrors};
-    use mctrl::{motor::{self, Field, MotorInstructions, MotorMove, MotorMoveType, PosNow}, NMOVESPEED};
+    use mctrl::{motor::{Field, FieldUsize, MotorInstructions, PosNow}, NMOVESPEED, TRANSPORTSPEED};
 
 
     #[derive(Debug)]
@@ -187,11 +187,12 @@ pub mod position {
     }
 
     #[derive(Debug)]
+    #[derive(Clone, Copy)]
     pub enum PFIType {
         Knight((usize, usize), (usize, usize)),
         Cleaning((usize, usize), (usize, usize)),
         NMove((usize, usize), (usize, usize)),
-        Rochade(((usize, usize), (usize, usize)), ((usize, usize), (usize, usize))),
+        Rochade(Piece, [(usize, usize); 4]),
         Custom((usize, usize), (usize, usize))
     }
 
@@ -212,7 +213,8 @@ pub mod position {
 
     #[derive(Debug)]
     pub enum PFError {
-        MoveDoesNotFitType(PFIType)
+        MoveDoesNotFitType(PFIType),
+        Rochade(u32)
     }
     #[derive(Debug)]
     #[derive(Clone)]
@@ -606,7 +608,7 @@ pub mod position {
                     self.fields[ke.0][ke.1] = Piece::King(p.piece_to_color());
                     self.fields[rs.0][rs.1] = Piece::None;
                     self.fields[re.0][re.1] = Piece::Rook(p.piece_to_color());
-                    moves.push(PFIType::Rochade((ks, ke),(rs, re)));
+                    moves.push(PFIType::Rochade(p, [ks, ke, rs, re]));
                 }
             };
             let state = match get_move(&self.to_fen(), 1000) {
@@ -706,13 +708,9 @@ pub mod position {
             }
         }
 
-        pub fn to_bit_list(&self) -> BitList {
-            todo!()
-        }
-
-        pub fn pathfinding(&self, vmove: &Vec<PFIType>, pos: &mut PosNow) -> Result<motor::MotorInstructions, PFError> {
-            todo!()
-            /*let mut res = MotorInstructions::new();
+        pub fn pathfinding(&self, vmove: &Vec<PFIType>, pos: &mut PosNow) -> Result<MotorInstructions, PFError> {
+            let mut res = MotorInstructions::new();
+            let mut bitlist = BitList::from_pos(self);
             for mov in vmove {
                 match *mov {
                     PFIType::NMove(start, end) => {
@@ -723,13 +721,96 @@ pub mod position {
                         } else {
                             return Err(PFError::MoveDoesNotFitType(*mov))
                         }
+                        bitlist.update(vec![start], vec![end]);
                     },
-                    PFIType::Rochade(kngm, rm) => {
+                    PFIType::Rochade(p, coords) => {
+                        res.append(pathfinding_rochade(p, coords, &mut BitList::from_pos(self), pos)?)
+                    },
+                    PFIType::Cleaning(sf, ef) => {
 
-                    }             
-                }
-            };*/
+                    },
+                    PFIType::Knight(sf, ef) => {
+
+                    },
+                    PFIType::Custom(sf, ef) => {
+
+                    }
+                };
+            };
+            Ok(res)
         }
+    }
+
+    pub fn pathfinding_cleaning(sf: FieldUsize, ef: FieldUsize, bl: &mut BitList) -> Result<MotorInstructions, PFError> {
+        todo!()
+    }
+
+    pub fn pathfinding_rochade(p: Piece, coords: [(usize, usize); 4], bl: &mut BitList, pos: &mut PosNow) -> Result<MotorInstructions, PFError> {
+        let col = p.piece_to_color();
+        let working_area = if col {
+            BitList::new(bl.0[6..8].to_vec())
+        } else {
+            BitList::new(bl.0[0..2].to_vec())
+        };
+        let (kng, koq) = match p {
+            Piece::King(_) => (FieldUsize::from_tuple((0u32, 7u32)), true),
+            Piece::Queen(_) => (FieldUsize::from_tuple((0u32, 6u32)), false),
+            _ => return Err(PFError::Rochade(line!()))
+        };
+        let mut res = MotorInstructions::new();
+        if (!working_area.check_coords(kng.add_y(1).add_x(1).to_tuple()) && koq) || (!working_area.check_coords(kng.add_y(1).sub_x(1).to_tuple()) && !koq) {
+            res.append(pf_rochade_helper(coords, koq, col, pos))
+        } else if !working_area.check_coords(kng.add_y(1).to_tuple()) {
+            let fak = if !col {
+                kng.add_y(1)
+            } else {
+                kng.add_y(7)
+            };
+            let fntfak = if koq {
+                fak.add_x(1)
+            } else {
+                fak.sub_x(1)
+            };
+            res.append(MotorInstructions::field_to_field(Field::from_field_usize(fntfak), Field::from_field_usize(fak), TRANSPORTSPEED, true, pos));
+            res.append(pf_rochade_helper(coords, koq, col, pos));
+            res.append(MotorInstructions::field_to_field(Field::from_field_usize(fak), Field::from_field_usize(fntfak), TRANSPORTSPEED, true, pos));
+        } else {
+            let mut fntr = if koq {
+                FieldUsize(0, 11)
+            } else {
+                FieldUsize(0, 2)
+            };
+            if col {
+                fntr = fntr.add_y(8)
+            };
+            let esc_f = if !col {
+                fntr.add_y(1)
+            } else {
+                fntr.sub_y(1)
+            };
+            res.append(MotorInstructions::diagonal(Field::ind_to_relative_ind(coords[2]), Field::from_field_usize(esc_f), TRANSPORTSPEED, true, pos));
+            res.append(MotorInstructions::field_to_field(Field::ind_to_relative_ind(coords[0]), Field::from_field_usize(fntr), TRANSPORTSPEED, true, pos));
+            res.append(MotorInstructions::diagonal(Field::from_field_usize(esc_f), Field::ind_to_relative_ind(coords[2]), TRANSPORTSPEED, true, pos));
+            res.append(MotorInstructions::field_to_field(Field::ind_to_relative_ind(coords[2]), Field::ind_to_relative_ind(coords[3]), TRANSPORTSPEED, true, pos));
+            res.append(MotorInstructions::field_to_field(Field::from_field_usize(fntr), Field::ind_to_relative_ind(coords[1]), TRANSPORTSPEED, true, pos));
+        };
+        Ok(res)
+    }
+
+    fn pf_rochade_helper(coords: [(usize, usize); 4], koq: bool, col: bool, pos: &mut PosNow) -> MotorInstructions {
+        let mut res = MotorInstructions::new();
+        let mut esc_f = if koq {
+            FieldUsize(1, 8)
+        } else {
+            FieldUsize(1, 6)
+        };
+        if col {
+            esc_f = esc_f.add_y(5)
+        };
+        res.append(MotorInstructions::diagonal(Field::ind_to_relative_ind(coords[0]), Field::from_field_usize(esc_f), TRANSPORTSPEED, true, pos));
+        res.append(MotorInstructions::field_to_field(Field::ind_to_relative_ind(coords[2]), Field::ind_to_relative_ind(coords[3]), TRANSPORTSPEED, true, pos));
+        res.append(MotorInstructions::diagonal(Field::from_field_usize(esc_f), Field::ind_to_relative_ind(coords[1]), TRANSPORTSPEED, true, pos));
+        res
     }
 
     pub fn coordinates_to_index(coordinate: &str) -> Result<(usize, usize), MoveError> {
@@ -751,11 +832,15 @@ pub mod position {
         Ok((num, lett))
     }
 
-    pub struct BitList([[bool; 14]; 8]);
+    pub struct BitList(Vec<[bool; 14]>);
 
     impl BitList {
-        pub fn new(position: &Position) -> Self {
-            let mut res = [[false; 14]; 8];
+        pub fn new(vect: Vec<[bool; 14]>) -> Self {
+            Self(vect)
+        }
+
+        pub fn from_pos(position: &Position) -> Self {
+            let mut res = vec![[false; 14]; 8];
             for row in 0..8 {
                 for field in 0..14 {
                     if field < 2 || field > 11 {
@@ -774,14 +859,60 @@ pub mod position {
                 println!("  {:?}", i);
             }
         }
+
+        pub fn update(&mut self, to_remove: Vec<(usize, usize)>, to_add: Vec<(usize, usize)>) {
+            for (y, x) in to_remove {
+                if y < 8 && x < 14 {
+                    self.0[y][x] = false
+                }
+            };
+            for (y, x) in to_add {
+                if y < 8 && x < 14 {
+                    self.0[y][x] = true
+                };
+            };
+        }
+
+        pub fn check_coords(&self, (y, x): (usize, usize)) -> bool {
+            if y < 8 && x < 14 {
+                self.0[y][x]
+            } else {
+                false
+            }
+        }
+
+        pub fn check_field(&self, f: FieldUsize) -> bool {
+            self.check_coords(f.to_tuple())
+        }
+
+        pub fn count_area(&self, f1: FieldUsize, f2: FieldUsize) -> usize {
+            let mut res = 0;
+            let (r1, r2) = ord(f1.0, f2.0);
+            let rows = self.0[r1..r2+1].to_vec();
+            let (s1, s2) = ord(f1.1, f2.1);
+            for row in rows {
+                for field in s1..s2+1 {
+                    if row[field] {
+                        res += 1
+                    }
+                }
+            };
+            res
+        }
     }
 
-    
+    fn ord(a: usize, b: usize) -> (usize, usize) {
+        (min(a, b), max(a, b))
+    }
+
+        
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::position::{MoveError, MoveType, Position, Piece};
+    use mctrl::motor::FieldUsize;
+
+    use crate::position::{MoveError, MoveType, Position, Piece, BitList};
 
     use super::*;
 
@@ -836,5 +967,17 @@ mod tests {
     fn it_works6() {
         let result = &Piece::Bishop(false).check_field("a2", "d5");
         assert_eq!(*result, true);
+    }
+
+    #[test]
+    fn it_works7() {
+        let result = BitList::from_pos(&get_position()).check_coords((3, 5));
+        assert_eq!(result, true);
+    }
+
+    #[test]
+    fn it_works8() {
+        let result = BitList::from_pos(&get_position()).count_area(FieldUsize(3, 7), FieldUsize(6, 4));
+        assert_eq!(result, 6);
     }
 }
