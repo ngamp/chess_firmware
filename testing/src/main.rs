@@ -76,20 +76,22 @@ fn main() {
     println!("{}", std::env::consts::ARCH);*/
 
     
-    let a = motor::MotorInstructions::field_to_field(&PosNow::new_from_field(Field::ind_to_relative_ind((5, 7))), Field::ind_to_relative_ind((4, 4)), Field::ind_to_relative_ind((2, 2)), 4.0, true);
-    let b = motor::MotorInstructions::diagonal(Field::from_tuple((-0.5, -1.5)), Field::from_tuple((3.5, -4.5)), 3.0, true);
+    let a = motor::MotorInstructions::field_to_field(Field::ind_to_relative_ind((4, 4)), Field::ind_to_relative_ind((2, 2)), 4.0, true, &mut PosNow::new_from_field(Field::ind_to_relative_ind((5, 7))));
+    let b = motor::MotorInstructions::diagonal(Field::from_tuple((-0.5, -1.5)), Field::from_tuple((3.5, -4.5)), 3.0, true, &mut PosNow::new_from_field(Field::ind_to_relative_ind((4, 5))));
     let os = motor::OffSet::new(Field::from_tuple((1, 1)), Some(false), Some(true));
-    let c = os.offset(&PosNow::new());
-    let d = os.resolve(&PosNow::new());
+    let c = os.offset(&mut PosNow::new());
+    let d = os.resolve(&mut PosNow::new());
 
     let f1 = Field::ind_to_relative_ind((2, 2));
     let f2 = Field::ind_to_relative_ind((3, 3));
     let f3 = Field::ind_to_relative_ind((5, 5));
-    let e = motor::MotorInstructions::field_to_field(&PosNow::new_from_field(f1), f2, f3, 4.0, true);
+    let e = motor::MotorInstructions::field_to_field(f2, f3, 4.0, true, &mut PosNow::new_from_field(f1));
+    let bl = position::BitList::new(&position::Position::from_fen("r1b1kb1r/pppp1ppp/5q2/8/4P3/2NP4/PPP1QPPP/2KR1B1R w kq - 0 1").unwrap());
 
     a.print_out();
     b.print_out();
     c.print_out();
     d.print_out();
     e.print_out();
+    bl.print_out();
 }

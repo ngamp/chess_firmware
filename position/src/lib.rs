@@ -2,7 +2,7 @@ pub mod position {
 
     use std::{collections::HashMap, num::ParseIntError};
     use stockfish::{get_move, SFResults, SFErrors};
-    use mctrl::{motor::{self, Field, MotorInstructions, MotorMove, MotorMoveType}, NMOVESPEED};
+    use mctrl::{motor::{self, Field, MotorInstructions, MotorMove, MotorMoveType, PosNow}, NMOVESPEED};
 
 
     #[derive(Debug)]
@@ -706,24 +706,27 @@ pub mod position {
             }
         }
 
-
-        pub fn pathfinding(&self, vmove: &Vec<PFIType>) -> Result<motor::MotorInstructions, PFError> {
+        pub fn to_bit_list(&self) -> BitList {
             todo!()
-            /*
-            let mut res = MotorInstructions::new();
+        }
+
+        pub fn pathfinding(&self, vmove: &Vec<PFIType>, pos: &mut PosNow) -> Result<motor::MotorInstructions, PFError> {
+            todo!()
+            /*let mut res = MotorInstructions::new();
             for mov in vmove {
                 match *mov {
                     PFIType::NMove(start, end) => {
                         if start.0 == end.0 || start.1 == end.1 {
-                            res.append(MotorInstructions::field_to_field(Field::ind_to_relative_ind(start), Field::ind_to_relative_ind(end), NMOVESPEED, true));
+                            res.append(MotorInstructions::field_to_field(Field::ind_to_relative_ind(start), Field::ind_to_relative_ind(end), NMOVESPEED, true, pos));
                         } else if start.0.abs_diff(end.0) == start.1.abs_diff(end.1) {
-                            res.append(MotorInstructions::diagonal(Field::ind_to_relative_ind(start), Field::ind_to_relative_ind(end), NMOVESPEED, true));
+                            res.append(MotorInstructions::diagonal(Field::ind_to_relative_ind(start), Field::ind_to_relative_ind(end), NMOVESPEED, true, pos));
                         } else {
                             return Err(PFError::MoveDoesNotFitType(*mov))
                         }
                     },
+                    PFIType::Rochade(kngm, rm) => {
 
-                    
+                    }             
                 }
             };*/
         }
@@ -746,6 +749,31 @@ pub mod position {
             _ => return Err(MoveError::UnrightCoordinates)
         };
         Ok((num, lett))
+    }
+
+    pub struct BitList([[bool; 14]; 8]);
+
+    impl BitList {
+        pub fn new(position: &Position) -> Self {
+            let mut res = [[false; 14]; 8];
+            for row in 0..8 {
+                for field in 0..14 {
+                    if field < 2 || field > 11 {
+                    res[row][field] = true
+                    } else {
+                    res[row][field] = !position.field_is_empty((row, field))
+                    }
+                }
+            };
+            Self(res)
+        }
+
+        pub fn print_out(&self) {
+            println!("BitList");
+            for i in &self.0 {
+                println!("  {:?}", i);
+            }
+        }
     }
 
     
