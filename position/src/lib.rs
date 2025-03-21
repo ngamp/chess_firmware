@@ -214,7 +214,8 @@ pub mod position {
     #[derive(Debug)]
     pub enum PFError {
         MoveDoesNotFitType(PFIType),
-        Rochade(u32)
+        Rochade(u32),
+        Stuck
     }
     #[derive(Debug)]
     #[derive(Clone)]
@@ -721,7 +722,7 @@ pub mod position {
                         } else {
                             return Err(PFError::MoveDoesNotFitType(*mov))
                         }
-                        bitlist.update(vec![start], vec![end]);
+                        bitlist.update(vec![start], vec![end], vec![]);
                     },
                     PFIType::Rochade(p, coords) => {
                         res.append(pathfinding_rochade(p, coords, &mut BitList::from_pos(self), pos)?)
@@ -741,16 +742,78 @@ pub mod position {
         }
     }
 
+    #[derive(Debug)]
+    #[derive(Clone)]
+    pub struct OneFML(pub Vec<FieldUsize>);
+
+    impl OneFML {
+
+        pub fn new() -> Self {
+            OneFML(Vec::new())
+        }
+
+        pub fn add(&mut self, f: FieldUsize) {
+            self.0.push(f);
+        }
+
+        pub fn remove_last(&mut self) -> FieldUsize {
+            self.0.pop().unwrap()
+        }
+    }
+
+    pub fn pathfinding_custom(sf: FieldUsize, ef: FieldUsize, bl: &mut BitList, pos: &mut PosNow) -> Result<MotorInstructions, PFError> {
+        if bl.count_area(sf, ef) == 0 {
+            return Ok(MotorInstructions::field_to_field(Field::from_field_usize(sf), Field::from_field_usize(ef), NMOVESPEED, true, pos))
+        };
+        todo!()
+    }
+
+    pub fn pf_custom_helper(sf: FieldUsize, ef: FieldUsize, bl: &mut BitList, mut movlist: OneFML) -> Result<OneFML, PFError> {
+        //bl.print_out();
+        println!("{:?}", movlist);
+        if sf == ef {
+            return Ok(movlist)
+        };
+        //let ml = movlist.0.clone();
+        //ml.reverse();
+        let pml = sf.get_nearby(&ef);
+        println!("{:?}", pml);
+        /*for field in &ml {
+            if pml.contains(field) {
+                pml = pml.into_iter().filter(|x| *x != *field).collect();
+                pml.push(*field);
+            }
+        };*/
+        for field in pml {
+            if !bl.check_field(field) {
+                while movlist.0.contains(&field) {
+                    bl.update(vec![], vec![], vec![movlist.remove_last().to_tuple()]); 
+                }
+                movlist.add(field);
+                bl.update(vec![], vec![], vec![field.to_tuple()]);
+                return pf_custom_helper(field, ef, bl, movlist)                
+            }
+        }
+        Err(PFError::Stuck)
+    }
+
     pub fn pathfinding_cleaning(sf: FieldUsize, ef: FieldUsize, bl: &mut BitList) -> Result<MotorInstructions, PFError> {
+        let mut res = MotorInstructions::new();
+        let col = sf.1 < 2;
+        let zwf = if col {
+            FieldUsize(sf.0, 2)
+        } else {
+            FieldUsize(sf.0, 11)
+        };
         todo!()
     }
 
     pub fn pathfinding_rochade(p: Piece, coords: [(usize, usize); 4], bl: &mut BitList, pos: &mut PosNow) -> Result<MotorInstructions, PFError> {
         let col = p.piece_to_color();
         let working_area = if col {
-            BitList::new(bl.0[6..8].to_vec())
+            BitList(bl.0[6..8].to_vec())
         } else {
-            BitList::new(bl.0[0..2].to_vec())
+            BitList(bl.0[0..2].to_vec())
         };
         let (kng, koq) = match p {
             Piece::King(_) => (FieldUsize::from_tuple((0u32, 7u32)), true),
@@ -832,50 +895,62 @@ pub mod position {
         Ok((num, lett))
     }
 
-    pub struct BitList(Vec<[bool; 14]>);
+    pub struct BitList(pub Vec<[(bool, u8); 14]>);
 
     impl BitList {
-        pub fn new(vect: Vec<[bool; 14]>) -> Self {
-            Self(vect)
-        }
-
         pub fn from_pos(position: &Position) -> Self {
-            let mut res = vec![[false; 14]; 8];
-            for row in 0..8 {
-                for field in 0..14 {
-                    if field < 2 || field > 11 {
-                    res[row][field] = true
-                    } else {
-                    res[row][field] = !position.field_is_empty((row, field))
+            let mut res = [[(false, 8); 14]; 8].to_vec();
+            for (rownum, row) in position.fields.iter().enumerate() {
+                for (num, field) in row.iter().enumerate() {
+                    let nei = FieldUsize(rownum, num).get_neighbors();
+                    if *field != Piece::None {
+                        res[rownum][num] = (true, 8);
+                        for neighbor in &nei {
+                            res[neighbor.0][neighbor.1].1 -= 1;
+                        }
                     }
+                    res[rownum][num].1 -= (8-nei.len()) as u8
                 }
+                
             };
             Self(res)
         }
 
         pub fn print_out(&self) {
             println!("BitList");
+            /*for i in &self.0 {
+                println!("  {:?}", i.iter().map(|x| x.0).collect::<Vec<bool>>());
+            }*/
             for i in &self.0 {
-                println!("  {:?}", i);
+                println!("{:?}", i)
             }
         }
 
-        pub fn update(&mut self, to_remove: Vec<(usize, usize)>, to_add: Vec<(usize, usize)>) {
+        pub fn update(&mut self, to_remove: Vec<(usize, usize)>, to_add: Vec<(usize, usize)>, to_count: Vec<(usize, usize)>) {
             for (y, x) in to_remove {
                 if y < 8 && x < 14 {
-                    self.0[y][x] = false
+                    self.0[y][x].0 = false
                 }
             };
             for (y, x) in to_add {
                 if y < 8 && x < 14 {
-                    self.0[y][x] = true
+                    self.0[y][x].0 = true
+                };
+            };
+            for (y, x) in to_count {
+                if y < 8 && x < 14 {
+                    if self.0[y][x].1 > 1 {
+                        self.0[y][x].1 -= 1
+                    } else {
+                        self.0[y][x].0 = true
+                    }
                 };
             };
         }
 
         pub fn check_coords(&self, (y, x): (usize, usize)) -> bool {
             if y < 8 && x < 14 {
-                self.0[y][x]
+                self.0[y][x].0
             } else {
                 false
             }
@@ -892,12 +967,24 @@ pub mod position {
             let (s1, s2) = ord(f1.1, f2.1);
             for row in rows {
                 for field in s1..s2+1 {
-                    if row[field] {
+                    if row[field].0 {
                         res += 1
                     }
                 }
             };
             res
+        }
+
+        pub fn check_coords_num(&self, (y, x): (usize, usize)) -> u8 {
+            if y < 8 && x < 14 {
+                self.0[y][x].1
+            } else {
+                0
+            }
+        }
+
+        pub fn check_field_num(&self, f: FieldUsize) -> u8 {
+            self.check_coords_num(f.to_tuple())
         }
     }
 
@@ -971,6 +1058,8 @@ mod tests {
 
     #[test]
     fn it_works7() {
+        //println!("{:?}", BitList::from_pos(&get_position()));
+        BitList::from_pos(&get_position()).print_out();
         let result = BitList::from_pos(&get_position()).check_coords((3, 5));
         assert_eq!(result, true);
     }

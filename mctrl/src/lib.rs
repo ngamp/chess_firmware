@@ -494,16 +494,88 @@ pub mod motor {
         }
 
         pub fn sub_y(&self, y: usize) -> Self {
-            if self.1 > y {
+            if self.0 > y {
                 Self(self.0 - y, self.1)
             } else {
                 self.clone()
+            }
+        }
+ 
+        pub fn edit_y(&self, y: bool) -> Self {
+            if y {
+                self.add_y(1)
+            } else {
+                self.sub_y(1)
+            }
+        }
+
+        pub fn edit_x(&self, x: bool) -> Self {
+            if x {
+                self.add_x(1)
+            } else {
+                self.sub_x(1)
             }
         }
 
         pub fn to_tuple(&self) -> (usize, usize) {
             (self.0, self.1)
         }
+
+        pub fn get_neighbors(&self) -> Vec<Self> {
+            let y = self.0 as isize;
+            let x = self.1 as isize;
+            let mut res = Vec::new();
+            for i in -1..2 {
+                for j in -1..2 {
+                    //println!("{} {} {} {}", y, x, i, j);
+                    if !((i == 0 && j == 0) || y+i < 0 || y+i > 7 || x+j < 0 || x+j > 13) {
+                        //println!("bb");
+                        res.push(FieldUsize((y+i) as usize, (x+j) as usize));
+                    }
+                }
+            };
+            res
+        }
+
+        pub fn get_nearby(&self, ef: &Self) -> Vec<Self> {
+            let vf = (ef.0 as i32 - self.0 as i32, ef.1 as i32 - self.1 as i32);
+            println!("{:?}", vf);
+            let mut res = Vec::new();
+            let prefer_up = if self.0 < 4 {true} else {false};
+            let prefer_right = if self.1 < 7 {true} else {false};
+            let go_right = vf.1.is_positive();
+            let go_up = vf.0.is_positive();
+            if vf.0 == 0 {
+                res.push(self.edit_x(go_right));
+                res.push(self.edit_x(go_right).edit_y(prefer_up));
+                res.push(self.edit_x(go_right).edit_y(!prefer_up));
+                res.push(self.edit_y(prefer_up));
+                res.push(self.edit_y(!prefer_up));
+                res.push(self.edit_x(!go_right).edit_y(prefer_up));
+                res.push(self.edit_x(!go_right).edit_y(!prefer_up));
+                res.push(self.edit_x(!go_right))
+            } else if vf.1 == 0 {
+                res.push(self.edit_y(go_up));
+                res.push(self.edit_y(go_up).edit_x(prefer_right));
+                res.push(self.edit_y(go_up).edit_x(!prefer_right));
+                res.push(self.edit_x(prefer_right));
+                res.push(self.edit_x(!prefer_right));
+                res.push(self.edit_y(!go_up).edit_x(prefer_right));
+                res.push(self.edit_y(!go_up).edit_x(!prefer_right));
+                res.push(self.edit_y(!go_up))
+            } else {
+                res.push(self.edit_y(go_up).edit_x(go_right));
+                res.push(self.edit_y(go_up));
+                res.push(self.edit_x(go_right));
+                res.push(self.edit_y(!go_up).edit_x(go_right));
+                res.push(self.edit_y(go_up).edit_x(!go_right));
+                res.push(self.edit_y(!go_up));
+                res.push(self.edit_x(!go_right));
+                res.push(self.edit_y(!go_up).edit_x(!go_right));
+            }
+            res.into_iter().filter(|f| f.0 < 8).collect()
+        }
+
     }
 
     pub fn steps_to_motormove(ind: i32, speed: f32, magnet: bool) -> MotorMove {
