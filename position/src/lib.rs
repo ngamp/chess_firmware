@@ -747,7 +747,6 @@ pub mod position {
     pub struct OneFML(pub Vec<FieldUsize>);
 
     impl OneFML {
-
         pub fn new() -> Self {
             OneFML(Vec::new())
         }
@@ -759,6 +758,41 @@ pub mod position {
         pub fn remove_last(&mut self) -> FieldUsize {
             self.0.pop().unwrap()
         }
+
+        pub fn to_mi(&self) -> MotorInstructions {
+            todo!()
+        }
+
+        pub fn ease(self) -> Self {
+            //todo!()
+            let mut mvl = self.0;
+            let mut j = mvl.len() - 1;
+            let mut i = 0;
+            while j > 0 {
+                while i < j {
+                    let ef = mvl[j];
+                    let sf = mvl[i];
+                    match (ef.0.abs_diff(sf.0), ef.1.abs_diff(sf.1)) {
+                        (1, 0) | (1, 1) | (0, 1) => {
+                            j -= mvl.drain(i+1..j).collect::<Vec<FieldUsize>>().len();
+                        },
+                        (0, 0) => {
+                            j -= mvl.drain(i..j).collect::<Vec<FieldUsize>>().len();
+                        },
+                        _ => {}
+                    };
+                    i += 1;
+                };
+                j -= 1;
+                i = 0;
+            };
+            Self(mvl)
+        }
+
+        pub fn append(mut self, mut other: Self) -> Self {
+            self.0.append(&mut other.0);
+            self
+        }
     }
 
     pub fn pathfinding_custom(sf: FieldUsize, ef: FieldUsize, bl: &mut BitList, pos: &mut PosNow) -> Result<MotorInstructions, PFError> {
@@ -766,24 +800,33 @@ pub mod position {
             return Ok(MotorInstructions::field_to_field(Field::from_field_usize(sf), Field::from_field_usize(ef), NMOVESPEED, true, pos))
         };
         todo!()
+        /*let movlist = OneFML::new();
+        bl.update(vec![sf.to_tuple()], vec![], vec![]);
+        match pf_custom_helper(sf, ef, bl, movlist) {
+            Ok(ml) => return Ok(ml.to_mi(pos)),
+            Err(_) => {}
+        };*/
     }
 
-    pub fn pf_custom_helper(sf: FieldUsize, ef: FieldUsize, bl: &mut BitList, mut movlist: OneFML) -> Result<OneFML, PFError> {
+    pub fn pf_custom_helper(ogsf: FieldUsize, sf: FieldUsize, ef: FieldUsize, bl: &mut BitList, mut movlist: OneFML) -> Result<OneFML, PFError> {
         //bl.print_out();
         println!("{:?}", movlist);
         if sf == ef {
-            return Ok(movlist)
+            let mut res = OneFML::new();
+            res.add(ogsf);
+            return Ok(res.append(movlist))
         };
         //let ml = movlist.0.clone();
         //ml.reverse();
-        let pml = sf.get_nearby(&ef);
+        let mut pml = sf.get_nearby(&ef);
         println!("{:?}", pml);
-        /*for field in &ml {
-            if pml.contains(field) {
-                pml = pml.into_iter().filter(|x| *x != *field).collect();
-                pml.push(*field);
+        for banfield in &movlist.0 {
+            if pml.contains(&banfield) {
+                pml.retain(|y| y != banfield);
+                pml.push(*banfield);
             }
-        };*/
+        };
+        println!("{:?}", pml);
         for field in pml {
             if !bl.check_field(field) {
                 while movlist.0.contains(&field) {
@@ -791,7 +834,7 @@ pub mod position {
                 }
                 movlist.add(field);
                 bl.update(vec![], vec![], vec![field.to_tuple()]);
-                return pf_custom_helper(field, ef, bl, movlist)                
+                return pf_custom_helper(ogsf, field, ef, bl, movlist)                
             }
         }
         Err(PFError::Stuck)
@@ -895,6 +938,7 @@ pub mod position {
         Ok((num, lett))
     }
 
+    #[derive(Debug)]
     pub struct BitList(pub Vec<[(bool, u8); 14]>);
 
     impl BitList {

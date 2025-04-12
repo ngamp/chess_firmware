@@ -100,11 +100,22 @@ fn main() {
 
 
     println!("bitlist: .count_area()  {}", bl.count_area(FieldUsize(0, 8), FieldUsize(5, 8)));
-    let fen = "rnbqkbnr/pppppppp/8/8/2BPBNPP/2N1Q3/2PP1P1P/2P1K1RR b Kkq - 0 1";
+    let fen = "rnbqkbnr/pppppppp/8/8/2BPBNPP/2N1Q3/1RPP1P1P/2P1K1R1 w kq - 0 1";
     let mut bl = BitList::from_pos(&Position::from_fen(fen).unwrap());
     bl.update(vec![FieldUsize(5, 7).to_tuple()], vec![], vec![]);
+    //println!("{:?}", bl);
+    println!("{}", bl.check_field(FieldUsize(6, 6)));
     let movlist = OneFML::new();
+    println!("{:?}", FieldUsize(7, 13).get_nearby(&FieldUsize(2, 3)));
     //cd movlist.add(FieldUsize(5, 7));
-    let res = pf_custom_helper(FieldUsize(5, 7), FieldUsize(2, 3), &mut bl, movlist);
-    println!("{:?}", res)
+    let res = pf_custom_helper(FieldUsize(5, 7), FieldUsize(5, 7), FieldUsize(7, 4), &mut bl, movlist);
+    println!("{:?}", res);
+
+    /*let mut m2 = motor::Mtr::new(true, 5, 6, 13).unwrap();
+    m2.enable_motor();
+    m2.move_steps(2000, true, 4.5, &mut PosNow::new()).unwrap()*/
+    let mut test_vec = vec![0,1,2,3,4,5,6,7];
+    test_vec.drain(2..5);
+    println!("{:?}", test_vec);
+    println!("{:?}", res.unwrap().ease())
 }

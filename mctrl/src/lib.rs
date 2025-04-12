@@ -573,7 +573,7 @@ pub mod motor {
                 res.push(self.edit_x(!go_right));
                 res.push(self.edit_y(!go_up).edit_x(!go_right));
             }
-            res.into_iter().filter(|f| f.0 < 8).collect()
+            res.into_iter().filter(|f| f.0 < 8 && f.1 < 14).collect()
         }
 
     }
