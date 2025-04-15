@@ -1,3 +1,5 @@
+#[allow(unused_doc_comments)]
+
 pub mod position {
 
     use std::{collections::HashMap, num::ParseIntError, cmp::{min, max}};
@@ -189,8 +191,6 @@ pub mod position {
     #[derive(Debug)]
     #[derive(Clone, Copy)]
     pub enum PFIType {
-        Knight((usize, usize), (usize, usize)),
-        Cleaning((usize, usize), (usize, usize)),
         NMove((usize, usize), (usize, usize)),
         Rochade(Piece, [(usize, usize); 4]),
         Custom((usize, usize), (usize, usize))
@@ -577,7 +577,7 @@ pub mod position {
                         Ok(t) => t,
                         Err(rr) => return Err(UpdateError::CleaningError(rr))
                     };
-                    moves.push(PFIType::Cleaning(ind_move.1, rest_ind));
+                    moves.push(PFIType::Custom(ind_move.1, rest_ind));
                     self.fields[sfr][sfs] = Piece::None;
                     self.fields[efr][efs] = p;
                     moves.push(PFIType::NMove(ind_move.0, ind_move.1));
@@ -591,7 +591,7 @@ pub mod position {
                         Ok(t) => t,
                         Err(rr) => return Err(UpdateError::CleaningError(rr))
                     };
-                    moves.push(PFIType::Cleaning(bind, rest_ind));
+                    moves.push(PFIType::Custom(bind, rest_ind));
                     self.fields[bind.0][bind.1] = Piece::None;
                     self.fields[sfr][sfs] = Piece::None;
                     self.fields[efr][efs] = Piece::Pawn(!beaten_piece.piece_to_color());
@@ -716,25 +716,18 @@ pub mod position {
                 match *mov {
                     PFIType::NMove(start, end) => {
                         if start.0 == end.0 || start.1 == end.1 {
-                            res.append(MotorInstructions::field_to_field(Field::ind_to_relative_ind(start), Field::ind_to_relative_ind(end), Speeds::NMovespeed, true, pos));
+                            res.append_wo_pos(MotorInstructions::field_to_field(Field::ind_to_relative_ind(start), Field::ind_to_relative_ind(end), Speeds::NMovespeed, true, pos));
                         } else if start.0.abs_diff(end.0) == start.1.abs_diff(end.1) {
-                            res.append(MotorInstructions::diagonal(Field::ind_to_relative_ind(start), Field::ind_to_relative_ind(end), Speeds::NMovespeed, true, pos));
+                            res.append_wo_pos(MotorInstructions::diagonal(Field::ind_to_relative_ind(start), Field::ind_to_relative_ind(end), Speeds::NMovespeed, true, pos));
                         } else {
                             return Err(PFError::MoveDoesNotFitType(*mov))
                         }
-                        bitlist.update(vec![start], vec![end], vec![]);
                     },
                     PFIType::Rochade(p, coords) => {
-                        res.append(pathfinding_rochade(p, coords, &mut BitList::from_pos(self), pos)?)
-                    },
-                    PFIType::Cleaning(sf, ef) => {
-
-                    },
-                    PFIType::Knight(sf, ef) => {
-
+                        res.append_wo_pos(pathfinding_rochade(p, coords, &mut BitList::from_pos(self), pos)?)
                     },
                     PFIType::Custom(sf, ef) => {
-
+                        res.append_wo_pos(pathfinding_custom(FieldUsize::from_tuple(sf), FieldUsize::from_tuple(ef), &mut bitlist, pos)?);
                     }
                 };
             };
@@ -762,17 +755,18 @@ pub mod position {
         pub fn to_mi(self, pos: &mut PosNow) -> MotorInstructions {
             let movl = self.0;
             let mut res = MotorInstructions::new();
-            res.append(MotorInstructions::to_home(pos));
-            res.append(MotorInstructions::home_to_field(movl[0].to_field(), pos));
+            if pos.sfh_to_field() != movl[0].to_field() {
+                res.append_wo_pos(MotorInstructions::field_to_field(pos.sfh_to_field(), movl[0].to_field(), Speeds::NoFigurespeed, false, pos));
+            };
             let mut i = 0;
             while i+1 < movl.len() {
                 let vfield = movl[i+1].to_field()-movl[i].to_field();
                 match vfield.to_tuple() {
                     (1.0 | -1.0, 1.0 | -1.0) => {
-                        res.append(MotorInstructions::diagonal(movl[i].to_field(), movl[i+1].to_field(), Speeds::Transportspeed, true, pos));
+                        res.append_wo_pos(MotorInstructions::diagonal(movl[i].to_field(), movl[i+1].to_field(), Speeds::Transportspeed, true, pos));
                     },
                     _ => {
-                        res.append(MotorInstructions::from_vfield(vfield, Speeds::Transportspeed, true, pos));
+                        res.append(MotorInstructions::from_vfield(vfield, Speeds::Transportspeed, true), pos);
                     }
                 };
                 i += 1
@@ -809,19 +803,142 @@ pub mod position {
             self.0.append(&mut other.0);
             self
         }
+
+        pub fn pf_hf(mut sf: FieldUsize, ef: FieldUsize) -> Self {
+            let mut res = Self::new();
+            res.add(sf);
+            let xdir = ef.1 > sf.1;
+            let ydir = ef.0 > sf.0;
+            while sf.1 != ef.1 {
+                sf = sf.edit_x(xdir);
+                res.add(sf);
+            };
+            while sf.0 != ef.0 {
+                sf = sf.edit_y(ydir);
+                res.add(sf);
+            };
+            res
+        }
+
+        pub fn pf_vf(mut sf: FieldUsize, ef: FieldUsize) -> Self {
+            let mut res = Self::new();
+            res.add(sf);
+            let xdir = ef.1 > sf.1;
+            let ydir = ef.0 > sf.0;
+            while sf.0 != ef.0 {
+                sf = sf.edit_y(ydir);
+                res.add(sf);
+            };
+            while sf.1 != ef.1 {
+                sf = sf.edit_x(xdir);
+                res.add(sf);
+            };
+            res
+        }
     }
 
     pub fn pathfinding_custom(sf: FieldUsize, ef: FieldUsize, bl: &mut BitList, pos: &mut PosNow) -> Result<MotorInstructions, PFError> {
         if bl.count_area(sf, ef) == 0 {
             return Ok(MotorInstructions::field_to_field(Field::from_field_usize(sf), Field::from_field_usize(ef), Speeds::NMovespeed, true, pos))
         };
-        todo!()
-        /*let movlist = OneFML::new();
         bl.update(vec![sf.to_tuple()], vec![], vec![]);
-        match pf_custom_helper(sf, ef, bl, movlist) {
-            Ok(ml) => return Ok(ml.to_mi(pos)),
-            Err(_) => {}
-        };*/
+        let movlist = OneFML::new();
+        match pf_custom_helper(sf, sf, ef, bl, movlist) {
+            Ok(ml) => {
+                let mut res = ml.ease().to_mi(pos);
+                res.ease();
+                Ok(res)
+            },
+            Err(_) => {
+                let mut res = pf_stuck(sf, ef, bl, pos)?;
+                res.ease();
+                Ok(res)
+            }
+        }
+    }
+
+    pub fn pf_stuck(sf: FieldUsize, ef: FieldUsize, bl: &mut BitList, pos: &mut PosNow) -> Result<MotorInstructions, PFError> {
+        let mut res  = MotorInstructions::new();
+        let mut moved_pieces = Vec::new();
+        bl.update(vec![sf.to_tuple(), ef.to_tuple()], vec![], vec![]);
+        let mut fastest = 0;
+        for field in pf_custom_helper(sf, sf, ef, &mut BitList::new(), OneFML::new())?.0 {
+            if bl.check_field(field) {
+                fastest += 1
+            }
+        };
+        let mut vf = 0;
+        vf += bl.count_area(sf, FieldUsize::from_tuple((sf.0, ef.1)));
+        vf += bl.count_area(FieldUsize::from_tuple((sf.0, ef.1)), ef);
+        let mut hf = 0;
+        hf += bl.count_area(sf, FieldUsize::from_tuple((ef.0, sf.1)));
+        hf += bl.count_area(FieldUsize::from_tuple((ef.0, sf.1)), ef);
+        let path = if fastest <= vf && fastest <= hf {
+            pf_custom_helper(sf, sf, ef, &mut BitList::new(), OneFML::new())?
+        } else if vf < hf {
+            OneFML::pf_vf(sf, ef)
+        } else {
+            OneFML::pf_hf(sf, ef)
+        };
+        let mut fidw = Vec::new();
+        for field in path.0.clone() {
+            if bl.check_field(field) {
+                fidw.push(field);
+            }
+        };
+        let mut fidwr = fidw.clone();
+        fidwr.reverse();
+        for field in fidwr {
+            let mut poss_fields = field.get_neighbors();
+            for fff in path.0.clone() {
+                poss_fields.retain(|x| *x != fff);
+            };
+            let mut free = false;
+            let mut esc_f = FieldUsize(0, 0);
+            for ff in &poss_fields {
+                if !bl.check_field(*ff) {
+                    esc_f = *ff;
+                    free = true;
+                    break
+                }
+            }
+            if !free {
+                let mut free2 = false;
+                let mut esc_field2 = FieldUsize(0, 0);
+                'outer: for poss_esc in poss_fields {
+                    let mut poss_fields2 = poss_esc.get_neighbors();
+                    for fff in path.0.clone() {
+                        poss_fields2.retain(|x| *x != fff && *x != poss_esc);
+                    };
+                    for ff2 in poss_fields2 {
+                        if !bl.check_field(ff2) {
+                            esc_field2 = ff2;
+                            esc_f = poss_esc;
+                            println!("{:?}", esc_field2);
+                            free2 = true;
+                            break 'outer;
+                        }
+                    }
+                };
+                if free2 {
+                    res.append_wo_pos(MotorInstructions::diagonal(esc_f.to_field(), esc_field2.to_field(), Speeds::Transportspeed, true, pos));
+                    moved_pieces.push((esc_field2.to_field(), esc_f.to_field()));
+                } else {
+                    return Err(PFError::Stuck)
+                }
+            };
+            res.append_wo_pos(MotorInstructions::diagonal(field.to_field(), esc_f.to_field(), Speeds::Transportspeed, true, pos));
+            moved_pieces.push((esc_f.to_field(), field.to_field()));
+        }
+        let mut respath = path.to_mi(pos);
+        respath.ease();
+        respath.print_out();
+        res.append_wo_pos(respath);
+        moved_pieces.reverse();
+        for i in moved_pieces {
+            res.append_wo_pos(MotorInstructions::diagonal(i.0, i.1, Speeds::Transportspeed, true, pos));
+        }
+        Ok(res)
     }
 
     pub fn pf_custom_helper(ogsf: FieldUsize, sf: FieldUsize, ef: FieldUsize, bl: &mut BitList, mut movlist: OneFML) -> Result<OneFML, PFError> {
@@ -835,14 +952,12 @@ pub mod position {
         //let ml = movlist.0.clone();
         //ml.reverse();
         let mut pml = sf.get_nearby(&ef);
-        println!("{:?}", pml);
         for banfield in &movlist.0 {
             if pml.contains(&banfield) {
                 pml.retain(|y| y != banfield);
                 pml.push(*banfield);
             }
         };
-        println!("{:?}", pml);
         for field in pml {
             if !bl.check_field(field) {
                 while movlist.0.contains(&field) {
@@ -854,17 +969,6 @@ pub mod position {
             }
         }
         Err(PFError::Stuck)
-    }
-
-    pub fn pathfinding_cleaning(sf: FieldUsize, ef: FieldUsize, bl: &mut BitList) -> Result<MotorInstructions, PFError> {
-        let mut res = MotorInstructions::new();
-        let col = sf.1 < 2;
-        let zwf = if col {
-            FieldUsize(sf.0, 2)
-        } else {
-            FieldUsize(sf.0, 11)
-        };
-        todo!()
     }
 
     pub fn pathfinding_rochade(p: Piece, coords: [(usize, usize); 4], bl: &mut BitList, pos: &mut PosNow) -> Result<MotorInstructions, PFError> {
@@ -881,7 +985,7 @@ pub mod position {
         };
         let mut res = MotorInstructions::new();
         if (!working_area.check_coords(kng.add_y(1).add_x(1).to_tuple()) && koq) || (!working_area.check_coords(kng.add_y(1).sub_x(1).to_tuple()) && !koq) {
-            res.append(pf_rochade_helper(coords, koq, col, pos))
+            res.append_wo_pos(pf_rochade_helper(coords, koq, col, pos))
         } else if !working_area.check_coords(kng.add_y(1).to_tuple()) {
             let fak = if !col {
                 kng.add_y(1)
@@ -893,9 +997,9 @@ pub mod position {
             } else {
                 fak.sub_x(1)
             };
-            res.append(MotorInstructions::field_to_field(Field::from_field_usize(fntfak), Field::from_field_usize(fak), Speeds::Transportspeed, true, pos));
-            res.append(pf_rochade_helper(coords, koq, col, pos));
-            res.append(MotorInstructions::field_to_field(Field::from_field_usize(fak), Field::from_field_usize(fntfak), Speeds::Transportspeed, true, pos));
+            res.append_wo_pos(MotorInstructions::field_to_field(Field::from_field_usize(fntfak), Field::from_field_usize(fak), Speeds::Transportspeed, true, pos));
+            res.append_wo_pos(pf_rochade_helper(coords, koq, col, pos));
+            res.append_wo_pos(MotorInstructions::field_to_field(Field::from_field_usize(fak), Field::from_field_usize(fntfak), Speeds::Transportspeed, true, pos));
         } else {
             let mut fntr = if koq {
                 FieldUsize(0, 11)
@@ -910,11 +1014,11 @@ pub mod position {
             } else {
                 fntr.sub_y(1)
             };
-            res.append(MotorInstructions::diagonal(Field::ind_to_relative_ind(coords[2]), Field::from_field_usize(esc_f), Speeds::Transportspeed, true, pos));
-            res.append(MotorInstructions::field_to_field(Field::ind_to_relative_ind(coords[0]), Field::from_field_usize(fntr), Speeds::Transportspeed, true, pos));
-            res.append(MotorInstructions::diagonal(Field::from_field_usize(esc_f), Field::ind_to_relative_ind(coords[2]), Speeds::Transportspeed, true, pos));
-            res.append(MotorInstructions::field_to_field(Field::ind_to_relative_ind(coords[2]), Field::ind_to_relative_ind(coords[3]), Speeds::Transportspeed, true, pos));
-            res.append(MotorInstructions::field_to_field(Field::from_field_usize(fntr), Field::ind_to_relative_ind(coords[1]), Speeds::Transportspeed, true, pos));
+            res.append_wo_pos(MotorInstructions::diagonal(Field::ind_to_relative_ind(coords[2]), Field::from_field_usize(esc_f), Speeds::Transportspeed, true, pos));
+            res.append_wo_pos(MotorInstructions::field_to_field(Field::ind_to_relative_ind(coords[0]), Field::from_field_usize(fntr), Speeds::Transportspeed, true, pos));
+            res.append_wo_pos(MotorInstructions::diagonal(Field::from_field_usize(esc_f), Field::ind_to_relative_ind(coords[2]), Speeds::Transportspeed, true, pos));
+            res.append_wo_pos(MotorInstructions::field_to_field(Field::ind_to_relative_ind(coords[2]), Field::ind_to_relative_ind(coords[3]), Speeds::Transportspeed, true, pos));
+            res.append_wo_pos(MotorInstructions::field_to_field(Field::from_field_usize(fntr), Field::ind_to_relative_ind(coords[1]), Speeds::Transportspeed, true, pos));
         };
         Ok(res)
     }
@@ -929,9 +1033,9 @@ pub mod position {
         if col {
             esc_f = esc_f.add_y(5)
         };
-        res.append(MotorInstructions::diagonal(Field::ind_to_relative_ind(coords[0]), Field::from_field_usize(esc_f), Speeds::Transportspeed, true, pos));
-        res.append(MotorInstructions::field_to_field(Field::ind_to_relative_ind(coords[2]), Field::ind_to_relative_ind(coords[3]), Speeds::Transportspeed, true, pos));
-        res.append(MotorInstructions::diagonal(Field::from_field_usize(esc_f), Field::ind_to_relative_ind(coords[1]), Speeds::Transportspeed, true, pos));
+        res.append_wo_pos(MotorInstructions::diagonal(Field::ind_to_relative_ind(coords[0]), Field::from_field_usize(esc_f), Speeds::Transportspeed, true, pos));
+        res.append_wo_pos(MotorInstructions::field_to_field(Field::ind_to_relative_ind(coords[2]), Field::ind_to_relative_ind(coords[3]), Speeds::Transportspeed, true, pos));
+        res.append_wo_pos(MotorInstructions::diagonal(Field::from_field_usize(esc_f), Field::ind_to_relative_ind(coords[1]), Speeds::Transportspeed, true, pos));
         res
     }
 
@@ -958,6 +1062,11 @@ pub mod position {
     pub struct BitList(pub Vec<[(bool, u8); 14]>);
 
     impl BitList {
+
+        pub fn new() -> Self {
+            Self(vec![[(false, 8); 14]; 8])
+        }
+
         pub fn from_pos(position: &Position) -> Self {
             let mut res = [[(false, 8); 14]; 8].to_vec();
             for (rownum, row) in position.fields.iter().enumerate() {
@@ -1009,6 +1118,7 @@ pub mod position {
         }
 
         pub fn check_coords(&self, (y, x): (usize, usize)) -> bool {
+            println!("{}, {}", y, x);
             if y < 8 && x < 14 {
                 self.0[y][x].0
             } else {

@@ -1,7 +1,7 @@
 #![allow(unused_imports)]
-use mctrl::{motor::{diagonal, Field, FieldUsize, PosNow, Speeds}, *};
+use mctrl::{motor::{diagonal, Field, FieldUsize, MotorInstructions, PosNow, Speeds}, *};
 use position::position;
-use ::position::position::{pf_custom_helper, BitList, OneFML, Position};
+use ::position::position::{pf_custom_helper, pf_stuck, BitList, OneFML, Position};
 
 fn main() {
     /*let mut m1 = motor::Mtr::new(true, 5, 6, 13).unwrap();
@@ -100,16 +100,24 @@ fn main() {
 
 
     println!("bitlist: .count_area()  {}", bl.count_area(FieldUsize(0, 8), FieldUsize(5, 8)));
-    let fen = "rnbqkbnr/pppppppp/8/8/2BPBNPP/2N1Q3/1RPP1P1P/2P1K1R1 b kq - 0 1";
+    let fen = "rnbqkbnr/pppppppp/8/8/8/4PPPP/4PPPP/RNBQKBNR b KQkq - 0 1";
     let mut bl = BitList::from_pos(&Position::from_fen(fen).unwrap());
-    bl.update(vec![FieldUsize(5, 7).to_tuple()], vec![], vec![]);
+    bl.update(vec![FieldUsize(7, 9).to_tuple()], vec![], vec![]);
     //println!("{:?}", bl);
     println!("{}", bl.check_field(FieldUsize(6, 6)));
     let movlist = OneFML::new();
     println!("{:?}", FieldUsize(7, 13).get_nearby(&FieldUsize(2, 3)));
     //cd movlist.add(FieldUsize(5, 7));
-    let res = pf_custom_helper(FieldUsize(5, 7), FieldUsize(5, 7), FieldUsize(7, 4), &mut bl, movlist);
+    let res = pf_custom_helper(FieldUsize(7, 9), FieldUsize(7, 9), FieldUsize(5, 8), &mut bl, movlist);
     println!("{:?}", res);
+    println!("{:?}", OneFML::pf_hf(FieldUsize::from_tuple((1usize, 11usize)), FieldUsize::from_tuple((5usize, 9usize))));
+    println!("{:?}", OneFML::pf_vf(FieldUsize::from_tuple((1usize, 11usize)), FieldUsize::from_tuple((5usize, 9usize))));
+    a.print_out();
+    a.reverse().print_out();
+    let mut posnew = PosNow::new_from_field(FieldUsize(5, 9).to_field());
+    println!("{:?}", posnew.sfh_to_field());
+    pf_stuck(FieldUsize(7, 9), FieldUsize(4, 8), &mut bl, &mut posnew).unwrap().print_out();
+    println!("{:?}", posnew.sfh_to_field());
 
     /*let mut m2 = motor::Mtr::new(true, 5, 6, 13).unwrap();
     m2.enable_motor();
@@ -117,8 +125,4 @@ fn main() {
     let mut test_vec = vec![0,1,2,3,4,5,6,7];
     test_vec.drain(2..5);
     println!("{:?}", test_vec);
-    let mut mi = res.unwrap().ease().to_mi(&mut PosNow::new_from_field(FieldUsize(1, 4).to_field()));
-    mi.print_out();
-    mi.ease();
-    mi.print_out();
 }

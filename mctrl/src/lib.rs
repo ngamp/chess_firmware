@@ -231,11 +231,11 @@ pub mod motor {
     }
 
     impl MotorMoveType {
-        pub fn get_motormove(&self) -> MotorMove {
+        pub fn get_motormove(&mut self) -> &mut MotorMove {
             match self {
-                Self::StraightX(a) => *a,
-                Self::StraightY(a) => *a,
-                Self::Diagonal(a) => *a
+                Self::StraightX(a) => a,
+                Self::StraightY(a) => a,
+                Self::Diagonal(a) => a
             }
         }
     }
@@ -243,11 +243,11 @@ pub mod motor {
     impl Add for MotorMoveType {
         type Output = Self;
 
-        fn add(self, rhs: Self) -> Self::Output {
+        fn add(self, mut rhs: Self) -> Self::Output {
             match self {
-                Self::StraightX(a) => Self::StraightX(a + rhs.get_motormove()),
-                Self::StraightY(a) => Self::StraightY(a + rhs.get_motormove()),
-                Self::Diagonal(a) => Self::Diagonal(a + rhs.get_motormove())
+                Self::StraightX(a) => Self::StraightX(a + *rhs.get_motormove()),
+                Self::StraightY(a) => Self::StraightY(a + *rhs.get_motormove()),
+                Self::Diagonal(a) => Self::Diagonal(a + *rhs.get_motormove())
             }
         }
     }
@@ -294,6 +294,7 @@ pub mod motor {
     }
 
     #[derive(Debug)]
+    #[derive(Clone)]
     pub struct MotorInstructions {
         pub instructions: Vec<MotorMoveType>
     }
@@ -303,11 +304,26 @@ pub mod motor {
             MotorInstructions { instructions: Vec::new() }
         }
 
-        pub fn append(&mut self, mut mi: MotorInstructions) {
+        pub fn append(&mut self, mut mi: MotorInstructions, pos: &mut PosNow) {
+            mi.clone().write_to_pos(pos);
             self.instructions.append(&mut mi.instructions);
         }
 
-        pub fn from_vfield(field: Field, speed: Speeds, magnet: bool, pos: &mut PosNow) -> Self {
+        pub fn append_wo_pos(&mut self, mut mi: MotorInstructions) {
+            self.instructions.append(&mut mi.instructions);
+        }
+
+        pub fn reverse(self) -> Self {
+            let mut res = self.instructions.clone();
+            for mi in &mut res {
+                let reference = mi.get_motormove();
+                reference.dir = !reference.dir;
+                reference.dir2 = !reference.dir2;
+            };
+            Self { instructions: res }
+        }
+
+        pub fn from_vfield(field: Field, speed: Speeds, magnet: bool) -> Self {
             let mut res = Vec::new();
             let xlen = fields_to_steps_signed(field.0) as i32;
             let ylen = fields_to_steps_signed(field.1) as i32;
@@ -317,48 +333,51 @@ pub mod motor {
             if ylen != 0 {
                 res.push(MotorMoveType::StraightY(steps_to_motormove(ylen, speed, magnet)));
             }
-            Self { instructions:  res}.write_to_pos(pos)
+            Self { instructions:  res}
         }
 
         pub fn to_home(pos: &mut PosNow) -> Self {
             let x = -pos.xmtr;
             let y = -pos.ymtr;
-            Self { instructions: vec![MotorMoveType::StraightX(steps_to_motormove(x, Speeds::Homingspeed, false)), MotorMoveType::StraightY(steps_to_motormove(y, Speeds::Homingspeed, false))] }.write_to_pos(pos)
+            Self { instructions: vec![MotorMoveType::StraightX(steps_to_motormove(x, Speeds::Homingspeed, false)), MotorMoveType::StraightY(steps_to_motormove(y, Speeds::Homingspeed, false))] }
         }
 
         pub fn field_to_field(f1: Field, f2: Field, speed: Speeds, magnet: bool, pos: &mut PosNow) -> Self {
             let f = f2-f1;
-            let mut res = Self::new();
+            let mut res = MotorInstructions::new();
             if pos.sfh_to_field() != f1 {
-                res.append(Self::from_vfield(f1 - pos.sfh_to_field(), Speeds::NoFigurespeed, false, pos));
+                res.append(Self::from_vfield(f1 - pos.sfh_to_field(), Speeds::NoFigurespeed, false), pos);
             };
-            res.append(Self::from_vfield(f, speed, magnet, pos));
-            res.write_to_pos(pos)
+            res.append(Self::from_vfield(f, speed, magnet), pos);
+            res
         }
 
-        pub fn home_to_field(f: Field, pos: &mut PosNow) -> Self {
-            Self::from_vfield(f, Speeds::Homingspeed, false, pos)
+        pub fn home_to_field(f: Field) -> Self {
+            Self::from_vfield(f, Speeds::Homingspeed, false)
         }
 
         pub fn diagonal(f1: Field, f2: Field, speed: Speeds, magnet: bool, pos: &mut PosNow) -> Self {
-            let mut res = Vec::new();
+            let mut res = Self::new();
+            if pos.sfh_to_field() != f1 {
+                res.append_wo_pos(Self::field_to_field(pos.sfh_to_field(), f1, Speeds::NoFigurespeed, false, pos));
+            };
             let vf = f2 - f1;
             let mut len = fields_to_steps(vf.0.abs());
             if vf.0.abs() < vf.1.abs() {
                 let ylen = fields_to_steps(vf.1.abs() - vf.0.abs());
-                res.push(MotorMoveType::StraightY(MotorMove::new_values(vf.1.is_sign_positive(), ylen, true, speed, magnet)));
+                res.append(MotorInstructions { instructions: vec![MotorMoveType::StraightY(MotorMove::new_values(vf.1.is_sign_positive(), ylen, true, speed, magnet))] }, pos);
             };
             if vf.0.abs() > vf.1.abs() {
                 len = fields_to_steps(vf.1.abs());
                 let xlen = fields_to_steps(vf.0.abs() - vf.1.abs());
-                res.push(MotorMoveType::StraightX(MotorMove::new_values(vf.0.is_sign_positive(), xlen, true, speed, magnet)));
+                res.append(MotorInstructions { instructions: vec![MotorMoveType::StraightX(MotorMove::new_values(vf.0.is_sign_positive(), xlen, true, speed, magnet))] }, pos);
             };
-            res.push(MotorMoveType::Diagonal(MotorMove::new_values(vf.0.is_sign_positive(), len, vf.1.is_sign_positive(), speed, magnet)));
-            return Self { instructions: res }.write_to_pos(pos)
+            res.append(MotorInstructions { instructions: vec![MotorMoveType::Diagonal(MotorMove::new_values(vf.0.is_sign_positive(), len, vf.1.is_sign_positive(), speed, magnet))] }, pos);
+            res
         }
 
         pub fn print_out(&self) {
-            println!("MotorInstructions:");
+            println!("MotorInstructions (len: {}):", self.instructions.len());
             for i in &self.instructions {
                 println!("  {:?}", i);
             }
