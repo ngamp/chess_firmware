@@ -2,7 +2,7 @@ pub mod position {
 
     use std::{collections::HashMap, num::ParseIntError, cmp::{min, max}};
     use stockfish::{get_move, SFResults, SFErrors};
-    use mctrl::{motor::{Field, FieldUsize, MotorInstructions, PosNow}, NMOVESPEED, TRANSPORTSPEED};
+    use mctrl::motor::{Field, Speeds, FieldUsize, MotorInstructions, PosNow};
 
 
     #[derive(Debug)]
@@ -716,9 +716,9 @@ pub mod position {
                 match *mov {
                     PFIType::NMove(start, end) => {
                         if start.0 == end.0 || start.1 == end.1 {
-                            res.append(MotorInstructions::field_to_field(Field::ind_to_relative_ind(start), Field::ind_to_relative_ind(end), NMOVESPEED, true, pos));
+                            res.append(MotorInstructions::field_to_field(Field::ind_to_relative_ind(start), Field::ind_to_relative_ind(end), Speeds::NMovespeed, true, pos));
                         } else if start.0.abs_diff(end.0) == start.1.abs_diff(end.1) {
-                            res.append(MotorInstructions::diagonal(Field::ind_to_relative_ind(start), Field::ind_to_relative_ind(end), NMOVESPEED, true, pos));
+                            res.append(MotorInstructions::diagonal(Field::ind_to_relative_ind(start), Field::ind_to_relative_ind(end), Speeds::NMovespeed, true, pos));
                         } else {
                             return Err(PFError::MoveDoesNotFitType(*mov))
                         }
@@ -759,12 +759,28 @@ pub mod position {
             self.0.pop().unwrap()
         }
 
-        pub fn to_mi(&self) -> MotorInstructions {
-            todo!()
+        pub fn to_mi(self, pos: &mut PosNow) -> MotorInstructions {
+            let movl = self.0;
+            let mut res = MotorInstructions::new();
+            res.append(MotorInstructions::to_home(pos));
+            res.append(MotorInstructions::home_to_field(movl[0].to_field(), pos));
+            let mut i = 0;
+            while i+1 < movl.len() {
+                let vfield = movl[i+1].to_field()-movl[i].to_field();
+                match vfield.to_tuple() {
+                    (1.0 | -1.0, 1.0 | -1.0) => {
+                        res.append(MotorInstructions::diagonal(movl[i].to_field(), movl[i+1].to_field(), Speeds::Transportspeed, true, pos));
+                    },
+                    _ => {
+                        res.append(MotorInstructions::from_vfield(vfield, Speeds::Transportspeed, true, pos));
+                    }
+                };
+                i += 1
+            };
+            res
         }
 
         pub fn ease(self) -> Self {
-            //todo!()
             let mut mvl = self.0;
             let mut j = mvl.len() - 1;
             let mut i = 0;
@@ -797,7 +813,7 @@ pub mod position {
 
     pub fn pathfinding_custom(sf: FieldUsize, ef: FieldUsize, bl: &mut BitList, pos: &mut PosNow) -> Result<MotorInstructions, PFError> {
         if bl.count_area(sf, ef) == 0 {
-            return Ok(MotorInstructions::field_to_field(Field::from_field_usize(sf), Field::from_field_usize(ef), NMOVESPEED, true, pos))
+            return Ok(MotorInstructions::field_to_field(Field::from_field_usize(sf), Field::from_field_usize(ef), Speeds::NMovespeed, true, pos))
         };
         todo!()
         /*let movlist = OneFML::new();
@@ -877,9 +893,9 @@ pub mod position {
             } else {
                 fak.sub_x(1)
             };
-            res.append(MotorInstructions::field_to_field(Field::from_field_usize(fntfak), Field::from_field_usize(fak), TRANSPORTSPEED, true, pos));
+            res.append(MotorInstructions::field_to_field(Field::from_field_usize(fntfak), Field::from_field_usize(fak), Speeds::Transportspeed, true, pos));
             res.append(pf_rochade_helper(coords, koq, col, pos));
-            res.append(MotorInstructions::field_to_field(Field::from_field_usize(fak), Field::from_field_usize(fntfak), TRANSPORTSPEED, true, pos));
+            res.append(MotorInstructions::field_to_field(Field::from_field_usize(fak), Field::from_field_usize(fntfak), Speeds::Transportspeed, true, pos));
         } else {
             let mut fntr = if koq {
                 FieldUsize(0, 11)
@@ -894,11 +910,11 @@ pub mod position {
             } else {
                 fntr.sub_y(1)
             };
-            res.append(MotorInstructions::diagonal(Field::ind_to_relative_ind(coords[2]), Field::from_field_usize(esc_f), TRANSPORTSPEED, true, pos));
-            res.append(MotorInstructions::field_to_field(Field::ind_to_relative_ind(coords[0]), Field::from_field_usize(fntr), TRANSPORTSPEED, true, pos));
-            res.append(MotorInstructions::diagonal(Field::from_field_usize(esc_f), Field::ind_to_relative_ind(coords[2]), TRANSPORTSPEED, true, pos));
-            res.append(MotorInstructions::field_to_field(Field::ind_to_relative_ind(coords[2]), Field::ind_to_relative_ind(coords[3]), TRANSPORTSPEED, true, pos));
-            res.append(MotorInstructions::field_to_field(Field::from_field_usize(fntr), Field::ind_to_relative_ind(coords[1]), TRANSPORTSPEED, true, pos));
+            res.append(MotorInstructions::diagonal(Field::ind_to_relative_ind(coords[2]), Field::from_field_usize(esc_f), Speeds::Transportspeed, true, pos));
+            res.append(MotorInstructions::field_to_field(Field::ind_to_relative_ind(coords[0]), Field::from_field_usize(fntr), Speeds::Transportspeed, true, pos));
+            res.append(MotorInstructions::diagonal(Field::from_field_usize(esc_f), Field::ind_to_relative_ind(coords[2]), Speeds::Transportspeed, true, pos));
+            res.append(MotorInstructions::field_to_field(Field::ind_to_relative_ind(coords[2]), Field::ind_to_relative_ind(coords[3]), Speeds::Transportspeed, true, pos));
+            res.append(MotorInstructions::field_to_field(Field::from_field_usize(fntr), Field::ind_to_relative_ind(coords[1]), Speeds::Transportspeed, true, pos));
         };
         Ok(res)
     }
@@ -913,9 +929,9 @@ pub mod position {
         if col {
             esc_f = esc_f.add_y(5)
         };
-        res.append(MotorInstructions::diagonal(Field::ind_to_relative_ind(coords[0]), Field::from_field_usize(esc_f), TRANSPORTSPEED, true, pos));
-        res.append(MotorInstructions::field_to_field(Field::ind_to_relative_ind(coords[2]), Field::ind_to_relative_ind(coords[3]), TRANSPORTSPEED, true, pos));
-        res.append(MotorInstructions::diagonal(Field::from_field_usize(esc_f), Field::ind_to_relative_ind(coords[1]), TRANSPORTSPEED, true, pos));
+        res.append(MotorInstructions::diagonal(Field::ind_to_relative_ind(coords[0]), Field::from_field_usize(esc_f), Speeds::Transportspeed, true, pos));
+        res.append(MotorInstructions::field_to_field(Field::ind_to_relative_ind(coords[2]), Field::ind_to_relative_ind(coords[3]), Speeds::Transportspeed, true, pos));
+        res.append(MotorInstructions::diagonal(Field::from_field_usize(esc_f), Field::ind_to_relative_ind(coords[1]), Speeds::Transportspeed, true, pos));
         res
     }
 

@@ -14,8 +14,32 @@ pub mod motor {
 
     use rppal::gpio::{Error, OutputPin, Gpio};
 
-    use crate::{delay, HOMINGSPEED, MMF, MMR, NOFIGURESPEED, OFFSETRATIO, OFFSETSPEED};
+    use crate::{delay, HOMINGSPEED, MMF, MMR, NMOVESPEED, NOFIGURESPEED, OFFSETRATIO, OFFSETSPEED, TRANSPORTSPEED};
 
+    #[derive(Debug)]
+    #[derive(Clone, Copy)]
+    #[derive(PartialEq, Eq, PartialOrd, Ord)]
+    pub enum Speeds {
+        Homingspeed,
+        NMovespeed,
+        Offsetspeed,
+        NoFigurespeed,
+        Transportspeed
+    }
+
+    impl Speeds {
+        pub fn to_f32(&self) -> f32 {
+            match self {
+                Self::Homingspeed => HOMINGSPEED,
+                Self::NMovespeed => NMOVESPEED,
+                Self::NoFigurespeed => NOFIGURESPEED,
+                Self::Offsetspeed => OFFSETSPEED,
+                Self::Transportspeed => TRANSPORTSPEED
+
+            }
+        }
+    }
+    
     #[derive(Debug)]
     pub enum MtrErrors {
         GpioCreationError,
@@ -199,10 +223,33 @@ pub mod motor {
 
     #[derive(Debug)]
     #[derive(Clone, Copy)]
+    #[derive(PartialEq)]
     pub enum MotorMoveType {
         StraightX(MotorMove),
         StraightY(MotorMove),
         Diagonal(MotorMove)
+    }
+
+    impl MotorMoveType {
+        pub fn get_motormove(&self) -> MotorMove {
+            match self {
+                Self::StraightX(a) => *a,
+                Self::StraightY(a) => *a,
+                Self::Diagonal(a) => *a
+            }
+        }
+    }
+
+    impl Add for MotorMoveType {
+        type Output = Self;
+
+        fn add(self, rhs: Self) -> Self::Output {
+            match self {
+                Self::StraightX(a) => Self::StraightX(a + rhs.get_motormove()),
+                Self::StraightY(a) => Self::StraightY(a + rhs.get_motormove()),
+                Self::Diagonal(a) => Self::Diagonal(a + rhs.get_motormove())
+            }
+        }
     }
 
     #[derive(Debug)]
@@ -210,17 +257,38 @@ pub mod motor {
     pub struct MotorMove {
         pub dir: bool,
         pub len: u32,
-        pub speed: f32,
+        pub speed: Speeds,
         pub dir2: bool,
         pub magnet: bool
     }
 
+    impl Add for MotorMove {
+        type Output = Self;
+
+        fn add(self, rhs: Self) -> Self::Output {
+            Self {
+                len: self.len + rhs.len,
+                ..self
+            }
+        }
+    }
+
+    impl PartialEq for MotorMove {
+        fn eq(&self, other: &Self) -> bool {
+            if self.dir == other.dir && self.dir2 == other.dir2 && self.speed == other.speed && self.magnet == other.magnet {
+                true
+            } else {
+                false
+            }
+        }
+    }
+
     impl MotorMove {
         pub fn new() -> Self {
-            MotorMove {dir: true, len: 0, dir2: true, speed: 3.0, magnet: false}
+            MotorMove {dir: true, len: 0, dir2: true, speed: Speeds::NMovespeed, magnet: false}
         }
 
-        pub fn new_values(dir: bool, len: u32, dir2: bool, speed: f32, magnet: bool) -> Self {
+        pub fn new_values(dir: bool, len: u32, dir2: bool, speed: Speeds, magnet: bool) -> Self {
             MotorMove { dir, len, dir2, speed, magnet}
         }
     }
@@ -239,7 +307,7 @@ pub mod motor {
             self.instructions.append(&mut mi.instructions);
         }
 
-        pub fn from_vfield(field: Field, speed: f32, magnet: bool, pos: &mut PosNow) -> Self {
+        pub fn from_vfield(field: Field, speed: Speeds, magnet: bool, pos: &mut PosNow) -> Self {
             let mut res = Vec::new();
             let xlen = fields_to_steps_signed(field.0) as i32;
             let ylen = fields_to_steps_signed(field.1) as i32;
@@ -255,24 +323,24 @@ pub mod motor {
         pub fn to_home(pos: &mut PosNow) -> Self {
             let x = -pos.xmtr;
             let y = -pos.ymtr;
-            Self { instructions: vec![MotorMoveType::StraightX(steps_to_motormove(x, HOMINGSPEED, false)), MotorMoveType::StraightY(steps_to_motormove(y, HOMINGSPEED, false))] }.write_to_pos(pos)
+            Self { instructions: vec![MotorMoveType::StraightX(steps_to_motormove(x, Speeds::Homingspeed, false)), MotorMoveType::StraightY(steps_to_motormove(y, Speeds::Homingspeed, false))] }.write_to_pos(pos)
         }
 
-        pub fn field_to_field(f1: Field, f2: Field, speed: f32, magnet: bool, pos: &mut PosNow) -> Self {
+        pub fn field_to_field(f1: Field, f2: Field, speed: Speeds, magnet: bool, pos: &mut PosNow) -> Self {
             let f = f2-f1;
             let mut res = Self::new();
             if pos.sfh_to_field() != f1 {
-                res.append(Self::from_vfield(f1 - pos.sfh_to_field(), NOFIGURESPEED, false, pos));
+                res.append(Self::from_vfield(f1 - pos.sfh_to_field(), Speeds::NoFigurespeed, false, pos));
             };
             res.append(Self::from_vfield(f, speed, magnet, pos));
             res.write_to_pos(pos)
         }
 
         pub fn home_to_field(f: Field, pos: &mut PosNow) -> Self {
-            Self::from_vfield(f, HOMINGSPEED, false, pos)
+            Self::from_vfield(f, Speeds::Homingspeed, false, pos)
         }
 
-        pub fn diagonal(f1: Field, f2: Field, speed: f32, magnet: bool, pos: &mut PosNow) -> Self {
+        pub fn diagonal(f1: Field, f2: Field, speed: Speeds, magnet: bool, pos: &mut PosNow) -> Self {
             let mut res = Vec::new();
             let vf = f2 - f1;
             let mut len = fields_to_steps(vf.0.abs());
@@ -310,6 +378,18 @@ pub mod motor {
             }
             self
         }
+
+        pub fn ease(&mut self) {
+            let mut i = 0;
+            while i+1 < self.instructions.len() {
+                if self.instructions[i] == self.instructions[i+1] {
+                    self.instructions[i] = self.instructions[i] + self.instructions[i+1];
+                    self.instructions.remove(i+1);
+                } else {
+                    i += 1;
+                }
+            }
+        }
     }
 
     pub struct OffSet {
@@ -325,20 +405,20 @@ pub mod motor {
         pub fn offset(&self, pos: &mut PosNow) -> MotorInstructions {
             let mut res = Vec::new();
             if pos.sfh_to_field() != self.field {
-                res.append(&mut MotorInstructions::field_to_field(pos.sfh_to_field(), self.field, NOFIGURESPEED, false, pos).instructions)
+                res.append(&mut MotorInstructions::field_to_field(pos.sfh_to_field(), self.field, Speeds::NoFigurespeed, false, pos).instructions)
             };
             match (self.offset.0, self.offset.1) {
                 (Some(x), Some(y)) => {
-                    res.push(MotorMoveType::Diagonal(MotorMove::new_values(x, fields_to_steps(OFFSETRATIO), y, OFFSETSPEED, true)));
-                    res.push(MotorMoveType::Diagonal(MotorMove::new_values(!x, fields_to_steps(OFFSETRATIO), !y, OFFSETSPEED, false)));
+                    res.push(MotorMoveType::Diagonal(MotorMove::new_values(x, fields_to_steps(OFFSETRATIO), y, Speeds::Offsetspeed, true)));
+                    res.push(MotorMoveType::Diagonal(MotorMove::new_values(!x, fields_to_steps(OFFSETRATIO), !y, Speeds::Offsetspeed, false)));
                 },
                 (Some(x), None) => {
-                    res.push(MotorMoveType::StraightX(MotorMove::new_values(x, fields_to_steps(OFFSETRATIO), true, OFFSETSPEED, true)));
-                    res.push(MotorMoveType::StraightX(MotorMove::new_values(!x, fields_to_steps(OFFSETRATIO), true, OFFSETSPEED, false)));
+                    res.push(MotorMoveType::StraightX(MotorMove::new_values(x, fields_to_steps(OFFSETRATIO), true, Speeds::Offsetspeed, true)));
+                    res.push(MotorMoveType::StraightX(MotorMove::new_values(!x, fields_to_steps(OFFSETRATIO), true, Speeds::Offsetspeed, false)));
                 },
                 (None, Some(y)) => {
-                    res.push(MotorMoveType::StraightY(MotorMove::new_values(y, fields_to_steps(OFFSETRATIO), true, OFFSETSPEED, true)));
-                    res.push(MotorMoveType::StraightY(MotorMove::new_values(!y, fields_to_steps(OFFSETRATIO), true, OFFSETSPEED, false)));
+                    res.push(MotorMoveType::StraightY(MotorMove::new_values(y, fields_to_steps(OFFSETRATIO), true, Speeds::Offsetspeed, true)));
+                    res.push(MotorMoveType::StraightY(MotorMove::new_values(!y, fields_to_steps(OFFSETRATIO), true, Speeds::Offsetspeed, false)));
                 },
                 (None, None) => {}
             };
@@ -348,20 +428,20 @@ pub mod motor {
         pub fn resolve(self, pos: &mut PosNow) -> MotorInstructions {
             let mut res = Vec::new();
             if pos.sfh_to_field() != self.field {
-                res.append(&mut MotorInstructions::field_to_field(pos.sfh_to_field(), self.field, NOFIGURESPEED, false, pos).instructions)
+                res.append(&mut MotorInstructions::field_to_field(pos.sfh_to_field(), self.field, Speeds::NoFigurespeed, false, pos).instructions)
             };
             match (self.offset.0, self.offset.1) {
                 (Some(x), Some(y)) => {
-                    res.push(MotorMoveType::Diagonal(MotorMove::new_values(x, fields_to_steps(OFFSETRATIO), y, OFFSETSPEED, false)));
-                    res.push(MotorMoveType::Diagonal(MotorMove::new_values(!x, fields_to_steps(OFFSETRATIO), !y, OFFSETSPEED, true)));
+                    res.push(MotorMoveType::Diagonal(MotorMove::new_values(x, fields_to_steps(OFFSETRATIO), y, Speeds::Offsetspeed, false)));
+                    res.push(MotorMoveType::Diagonal(MotorMove::new_values(!x, fields_to_steps(OFFSETRATIO), !y, Speeds::Offsetspeed, true)));
                 },
                 (Some(x), None) => {
-                    res.push(MotorMoveType::StraightX(MotorMove::new_values(x, fields_to_steps(OFFSETRATIO), true, OFFSETSPEED, false)));
-                    res.push(MotorMoveType::StraightX(MotorMove::new_values(!x, fields_to_steps(OFFSETRATIO), true, OFFSETSPEED, true)));
+                    res.push(MotorMoveType::StraightX(MotorMove::new_values(x, fields_to_steps(OFFSETRATIO), true, Speeds::Offsetspeed, false)));
+                    res.push(MotorMoveType::StraightX(MotorMove::new_values(!x, fields_to_steps(OFFSETRATIO), true, Speeds::Offsetspeed, true)));
                 },
                 (None, Some(y)) => {
-                    res.push(MotorMoveType::StraightY(MotorMove::new_values(y, fields_to_steps(OFFSETRATIO), true, OFFSETSPEED, false)));
-                    res.push(MotorMoveType::StraightY(MotorMove::new_values(!y, fields_to_steps(OFFSETRATIO), true, OFFSETSPEED, true)));
+                    res.push(MotorMoveType::StraightY(MotorMove::new_values(y, fields_to_steps(OFFSETRATIO), true, Speeds::Offsetspeed, false)));
+                    res.push(MotorMoveType::StraightY(MotorMove::new_values(!y, fields_to_steps(OFFSETRATIO), true, Speeds::Offsetspeed, true)));
                 },
                 (None, None) => {}
             };
@@ -432,6 +512,10 @@ pub mod motor {
 
         pub fn from_field_usize(f: FieldUsize) -> Self {
             Field::ind_to_relative_ind(f.to_tuple())
+        }
+
+        pub fn to_tuple(&self) -> (f32, f32) {
+            (self.0, self.1)
         }
     }
 
@@ -576,9 +660,13 @@ pub mod motor {
             res.into_iter().filter(|f| f.0 < 8 && f.1 < 14).collect()
         }
 
+        pub fn to_field(self) -> Field {
+            Field::from_field_usize(self)
+        }
+
     }
 
-    pub fn steps_to_motormove(ind: i32, speed: f32, magnet: bool) -> MotorMove {
+    pub fn steps_to_motormove(ind: i32, speed: Speeds, magnet: bool) -> MotorMove {
         let xmovement = ind;
         let xmovement = if xmovement.is_negative() {
             MotorMove::new_values(false, xmovement.abs() as u32, true, speed, magnet)
