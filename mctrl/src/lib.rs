@@ -75,9 +75,9 @@ pub mod motor {
                 Err(rr) => return Err(MtrErrors::PinGettingError(rr))
             };
             Ok(Mtr {
-                xaxis: xaxis,
-                dirpin: dirpin,
-                steppin: steppin,
+                xaxis,
+                dirpin,
+                steppin,
                 enb_pin: enablepin,
             })
 
@@ -91,9 +91,13 @@ pub mod motor {
             self.enb_pin.set_low();
         }
 
-        pub fn move_steps(&mut self, steps: u32, direction: bool, speed: f32, pos: &mut PosNow) -> Result<(), MtrErrors>{
+        pub fn is_enabled(&self) -> bool {
+            self.enb_pin.is_set_high()
+        }
+
+        pub fn move_steps(&mut self, steps: u32, direction: bool, speed: f32, pos: &mut PosNow) {
             if self.enb_pin.is_set_low() {
-                return Err(MtrErrors::MotorDisabled)
+                self.enb_pin.set_high();
             };
             pos.update(self.xaxis, steps, direction);
             if direction {
@@ -108,11 +112,11 @@ pub mod motor {
                 self.steppin.set_low();
                 delay::delaymics(del);
             };
-            Ok(())
         }
     }
 
-    fn rps_to_del(rps: f32) -> u32 {
+
+    pub fn rps_to_del(rps: f32) -> u32 {
         (5000.0/rps) as u32 / 2
     }
 

@@ -1,7 +1,7 @@
 #![allow(unused_imports)]
-use mctrl::{motor::{diagonal, Field, FieldUsize, MotorInstructions, PosNow, Speeds}, *};
+use mctrl::{motor::{diagonal, Field, FieldUsize, MotorInstructions, Mtr, PosNow, Speeds}, *};
 use position::position;
-use ::position::position::{pf_custom_helper, pf_stuck, BitList, OneFML, Position};
+use ::position::{machine::Machine, position::{pf_custom_helper, pf_stuck, BitList, OneFML, Position}};
 
 fn main() {
     /*let mut m1 = motor::Mtr::new(true, 5, 6, 13).unwrap();
@@ -125,4 +125,8 @@ fn main() {
     let mut test_vec = vec![0,1,2,3,4,5,6,7];
     test_vec.drain(2..5);
     println!("{:?}", test_vec);
+
+    let mut testmachine = Machine::new((true, 2, 3, 4), (false, 5, 6, 7), 9).unwrap();
+    testmachine.set_position("rnbqkbnr/pppppppp/8/8/8/4PPPP/4PPPP/RNBQKBNR b KQkq - 0 1").unwrap();
+    testmachine.print_status();
 }
