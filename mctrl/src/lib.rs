@@ -12,7 +12,7 @@ pub mod motor {
     use core::f32;
     use std::ops::{Add, Sub};
 
-    use rppal::gpio::{Error, OutputPin, Gpio};
+    use rppal::gpio::{Error, Gpio, OutputPin};
 
     use crate::{delay, HOMINGSPEED, MMF, MMR, NMOVESPEED, NOFIGURESPEED, OFFSETRATIO, OFFSETSPEED, TRANSPORTSPEED};
 
@@ -50,13 +50,17 @@ pub mod motor {
     #[derive(Debug)]
     pub struct Mtr {
         pub xaxis: bool,
-        pub dirpin: OutputPin,
-        pub steppin: OutputPin,
-        pub enb_pin: OutputPin,
+        pub dirpin: Option<OutputPin>,
+        pub steppin: Option<OutputPin>,
+        pub enb_pin: Option<OutputPin>,
     }
 
 
     impl Mtr {
+        pub fn dummy() -> Self {
+            Mtr { xaxis: true, dirpin: None, steppin: None, enb_pin: None }
+        }
+        
         pub fn new(xaxis: bool, dp: u8, sp: u8, enbp: u8) -> Result<Self, MtrErrors>  {
             let gp = match Gpio::new() {
                 Ok(gp) => gp,
@@ -76,40 +80,42 @@ pub mod motor {
             };
             Ok(Mtr {
                 xaxis,
-                dirpin,
-                steppin,
-                enb_pin: enablepin,
+                dirpin: Some(dirpin),
+                steppin: Some(steppin),
+                enb_pin: Some(enablepin),
             })
 
         }
 
         pub fn enable_motor(&mut self) {
-            self.enb_pin.set_high();
+            self.enb_pin.as_mut().unwrap().set_high();
         }
 
         pub fn disable_motor(&mut self) {
-            self.enb_pin.set_low();
+            self.enb_pin.as_mut().unwrap().set_low();
         }
 
         pub fn is_enabled(&self) -> bool {
-            self.enb_pin.is_set_high()
+            self.enb_pin.as_ref().unwrap().is_set_high()
         }
 
         pub fn move_steps(&mut self, steps: u32, direction: bool, speed: f32, pos: &mut PosNow) {
-            if self.enb_pin.is_set_low() {
-                self.enb_pin.set_high();
+            let enbpin = self.enb_pin.as_mut().unwrap();
+            if enbpin.is_set_low() {
+                enbpin.set_high();
             };
             pos.update(self.xaxis, steps, direction);
             if direction {
-                self.dirpin.set_high();
+                self.dirpin.as_mut().unwrap().set_high();
             } else {
-                self.dirpin.set_low();
+                self.dirpin.as_mut().unwrap().set_low();
             };
             let del = rps_to_del(speed);
+            let steppin = self.steppin.as_mut().unwrap();
             for _ in 0..steps {
-                self.steppin.set_high();
+                steppin.set_high();
                 delay::delaymics(del);
-                self.steppin.set_low();
+                steppin.set_low();
                 delay::delaymics(del);
             };
         }
@@ -120,40 +126,16 @@ pub mod motor {
         (5000.0/rps) as u32 / 2
     }
 
-    pub fn diagonal(x: &mut Mtr, y: &mut Mtr, right: bool, up: bool, steps: u32, speed: f32, pos: &mut PosNow) -> Result<(), MtrErrors>{
-        if x.enb_pin.is_set_low() || y.enb_pin.is_set_low() {
-            return Err(MtrErrors::MotorDisabled)
-        };
-        pos.update(true, steps, right);
-        pos.update(false, steps, up);
-        if right {
-            x.dirpin.set_high();
-        } else {
-            x.dirpin.set_low();
-        };
-        if up {
-            y.dirpin.set_high();
-        } else {
-            y.dirpin.set_low();
-        }
-        let del = rps_to_del(speed);
-        for _ in 0..steps {
-            x.steppin.set_high();
-            y.steppin.set_high();
-            delay::delaymics(del);
-            x.steppin.set_low();
-            y.steppin.set_low();
-            delay::delaymics(del);
-        }
-        Ok(())
-    }
-
     #[derive(Debug)]
     pub struct Magnet {
-        pub pin: OutputPin,
+        pub pin: Option<OutputPin>,
     }
 
     impl Magnet {
+        pub fn dummy() -> Self {
+            Self { pin: None }
+        }
+
         pub fn new(pinnum: u8) -> Result<Self, MtrErrors> {
             let gp = match Gpio::new() {
                 Ok(gp) => gp,
@@ -164,20 +146,20 @@ pub mod motor {
                 Err(rr) => return Err(MtrErrors::PinGettingError(rr))
             };
             return Ok(Magnet {
-                pin: mgpin
+                pin: Some(mgpin)
             })
         }
 
         pub fn status(&self) -> bool {
-            return self.pin.is_set_high()
+            return self.pin.as_ref().unwrap().is_set_high()
         }
 
         pub fn on(&mut self) {
-            self.pin.set_high();
+            self.pin.as_mut().unwrap().set_high();
         }
 
         pub fn off(&mut self) {
-            self.pin.set_low();
+            self.pin.as_mut().unwrap().set_low();
         }
     }
 

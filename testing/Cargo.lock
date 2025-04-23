@@ -35,6 +35,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "875b3680cb2f8f71bdcf9a30f38d48282f5d3c95cbf9b3fa57269bb5d5c06828"
 
 [[package]]
+name = "mainp"
+version = "0.1.0"
+dependencies = [
+ "mctrl",
+ "position",
+]
+
+[[package]]
 name = "mctrl"
 version = "0.1.0"
 dependencies = [
@@ -97,6 +105,7 @@ version = "0.1.0"
 name = "testing"
 version = "0.1.0"
 dependencies = [
+ "mainp",
  "mctrl",
  "position",
  "stockfish",

@@ -1,6 +1,7 @@
 #![allow(unused_imports)]
-use mctrl::{motor::{diagonal, Field, FieldUsize, MotorInstructions, Mtr, PosNow, Speeds}, *};
+use mctrl::{motor::{Field, FieldUsize, MotorInstructions, Mtr, PosNow, Speeds}, *};
 use position::position::{pf_custom_helper, pf_stuck, BitList, OneFML, Position};
+use mainp::*;
 
 
 fn main() {
@@ -120,12 +121,11 @@ fn main() {
     test_mi.print_out();
     println!("{:?}", posnew.sfh_to_field());
 
-    
     let mut test_vec = vec![0,1,2,3,4,5,6,7];
     test_vec.drain(2..5);
     println!("{:?}", test_vec);
     
-    /*let mut m1 = motor::Mtr::new(true, 5, 6, 13).unwrap();
+    let mut m1 = motor::Mtr::new(true, 5, 6, 13).unwrap();
     m1.enable_motor();
     m1.move_steps(1600, true, 5.0, &mut posnew);
     delay::delayms(200);
@@ -134,5 +134,5 @@ fn main() {
     m1.move_steps(800, true, 6.0, &mut posnew);
     delay::delayms(200);
     m1.move_steps(2000, false, 5.0, &mut posnew);
-    m1.disable_motor()*/
+    m1.disable_motor()
 }

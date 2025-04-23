@@ -17,6 +17,10 @@ pub struct Machine {
 
 impl Machine {
 
+    pub fn dummy() -> Self {
+        Self { xmtr: Mtr::dummy(), ymtr: Mtr::dummy(), magnet: Magnet::dummy(), position: Position::new_reset(), pos_mtr: PosNow::new() }
+    }
+
     pub fn new(xmtr: (bool, u8, u8, u8), ymtr: (bool, u8, u8, u8), magnet: u8) -> Result<Self, MachineErrors> {
         let xmtr = match Mtr::new(xmtr.0, xmtr.1, xmtr.2,  xmtr.3) {
             Ok(xm) => xm,
@@ -43,22 +47,24 @@ impl Machine {
 
     pub fn diagonal(&mut self, xdir: bool, ydir: bool, steps: u32, speed: Speeds) {
         if xdir {
-            self.xmtr.dirpin.set_high();
+            self.xmtr.dirpin.as_mut().unwrap().set_high();
         } else {
-            self.xmtr.dirpin.set_low();
+            self.xmtr.dirpin.as_mut().unwrap().set_low();
         };
         if ydir {
-            self.ymtr.dirpin.set_high();
+            self.ymtr.dirpin.as_mut().unwrap().set_high();
         } else {
-            self.ymtr.dirpin.set_low();
+            self.ymtr.dirpin.as_mut().unwrap().set_low();
         };
         let del = rps_to_del(speed.to_f32());
+        let xsteppin = self.xmtr.steppin.as_mut().unwrap();
+        let ysteppin = self.ymtr.steppin.as_mut().unwrap();
         for _ in 0..steps {
-            self.xmtr.steppin.set_high();
-            self.ymtr.steppin.set_high();
+            xsteppin.set_high();
+            ysteppin.set_high();
             delaymics(del);
-            self.xmtr.steppin.set_low();
-            self.ymtr.steppin.set_low();
+            xsteppin.set_low();
+            ysteppin.set_low();
             delaymics(del);
         };
         self.pos_mtr.update(true, steps, xdir);
@@ -112,11 +118,32 @@ impl Machine {
 #[derive(Debug)]
 pub struct Game {
     pub machine: Machine,
-    wm: bool,
-    bm: bool,
-    ws: bool,
-    bs: bool,
-    welo: u32,
-    belo:  u32,
-    sftime: u32
+    pub wm: bool,
+    pub bm: bool,
+    pub ws: bool,
+    pub bs: bool,
+    pub welo: u32,
+    pub belo:  u32,
+    pub sftime: u32
+}
+
+impl Game {
+    pub fn new(xmtr: (bool, u8, u8, u8), ymtr: (bool, u8, u8, u8), magnet: u8) -> Result<Self, MachineErrors> {
+        let machine = Machine::new(xmtr, ymtr, magnet)?;
+        Ok(Game { machine , wm: false, bm: false, ws: false, bs: false, welo: 1500, belo: 1500, sftime: 1000 })
+    }
+
+    pub fn set_settings(&mut self, set: (bool, bool, bool, bool, u32, u32, u32)) {
+        self.wm = set.0;
+        self.bm = set.1;
+        self.ws = set.2;
+        self.bs = set.3;
+        self.welo = set.4;
+        self.belo = set.5;
+        self.sftime = set.6;
+    }
+}
+
+pub fn mainf() {
+
 }
