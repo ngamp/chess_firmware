@@ -5,7 +5,7 @@ pub const NMOVESPEED: f32 = 2.0;
 pub const OFFSETRATIO: f32 = 1.0/3.0;
 pub const OFFSETSPEED: f32 = 1.5;
 pub const NOFIGURESPEED: f32 = 4.5;
-pub const TRANSPORTSPEED: f32 = 2.0;
+pub const TRANSPORTSPEED: f32 = 4.0;
 
 pub mod motor {
 
@@ -435,7 +435,7 @@ pub mod motor {
                     res.push(MotorMoveType::Diagonal(MotorMove::new_values(x, fields_to_steps(OFFSETRATIO), y, Speeds::Offsetspeed, true)));
                     res.push(MotorMoveType::Diagonal(MotorMove::new_values(!x, fields_to_steps(OFFSETRATIO), !y, Speeds::Offsetspeed, false)));
                 },
-                (Some(x), None) => {
+                (Some(x), Option::None) => {
                     res.push(MotorMoveType::StraightX(MotorMove::new_values(x, fields_to_steps(OFFSETRATIO), true, Speeds::Offsetspeed, true)));
                     res.push(MotorMoveType::StraightX(MotorMove::new_values(!x, fields_to_steps(OFFSETRATIO), true, Speeds::Offsetspeed, false)));
                 },

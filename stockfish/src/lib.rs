@@ -17,7 +17,7 @@ const PATH_TO_STOCKFISH: &str = "../stockfish/sfs/sf_ubuntu";
 const  WELCOME_MESSAGE: &str = "Stockfish 17 by the Stockfish developers (see AUTHORS file)\nreadyok\n";
 
 
-pub fn get_move(fen: &str, time: u32) -> Result<SFResults, SFErrors> {
+pub fn get_move(fen: &str, elo: u32, time: u32) -> Result<SFResults, SFErrors> {
     let mut sf = match new_sf() {
         Ok(sf) => sf,
         Err(rr) => return Err(rr),
@@ -46,7 +46,7 @@ pub fn get_move(fen: &str, time: u32) -> Result<SFResults, SFErrors> {
         },
         Err(rr) => return Err(SFErrors::SFOutReadingParsing(rr)),
     };
-    match sfin.write_all(&format!("position fen {}\nd\ngo movetime {}\n", fen, time).as_bytes()) {
+    match sfin.write_all(&format!("position fen {}\nsetoption name UCI_Elo value {}\nsetoption name UCI_LimitStrength value true \ngo movetime {}\n", fen, elo, time).as_bytes()) {
         Ok(_) => {}
         Err(rr) => return Err(SFErrors::SFInWriting(rr)),
     };
@@ -150,19 +150,19 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let result = get_move("8/1q6/5k2/K7/Pp6/8/8/8 w - - 1 54", 1000);
+        let result = get_move("8/1q6/5k2/K7/Pp6/8/8/8 w - - 1 54", 3000, 1000);
         assert_eq!(result.unwrap(), SFResults::Stalemate);
     }
 
     #[test]
     fn it_works2() {
-        let result = get_move("8/3R4/3kp3/1Q6/1P6/8/1PK1P3/8 b - - 8 44", 1000);
+        let result = get_move("8/3R4/3kp3/1Q6/1P6/8/1PK1P3/8 b - - 8 44", 3000, 1000);
         assert_eq!(result.unwrap(), SFResults::Mate);
     }
 
     #[test]
     fn it_works3() {
-        let result = get_move("r4rk1/pp2ppb1/4b2P/2B5/4q3/2P4P/PP2P3/RN1QK1NR b KQ - 0 15", 1000);
-        assert_eq!(result.unwrap(), SFResults::Normal("f8d8".to_string()));
+        let result = get_move("7k/5ppp/6b1/7n/8/8/8/3RK3 b - - 0 1", 3000, 1000);
+        assert_eq!(result.unwrap(), SFResults::Normal("h7h6".to_string()));
     }
 }

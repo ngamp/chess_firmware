@@ -1,7 +1,7 @@
 #![allow(unused_imports)]
 use mctrl::{motor::{diagonal, Field, FieldUsize, MotorInstructions, Mtr, PosNow, Speeds}, *};
-use position::position;
-use ::position::{machine::Machine, position::{pf_custom_helper, pf_stuck, BitList, OneFML, Position}};
+use position::position::{pf_custom_helper, pf_stuck, BitList, OneFML, Position};
+
 
 fn main() {
     /*let mut m1 = motor::Mtr::new(true, 5, 6, 13).unwrap();
@@ -87,7 +87,7 @@ fn main() {
     let f2 = Field::ind_to_relative_ind((3, 3));
     let f3 = Field::ind_to_relative_ind((5, 5));
     let e = motor::MotorInstructions::field_to_field(f2, f3, Speeds::Transportspeed, true, &mut PosNow::new_from_field(f1));
-    let bl = position::BitList::from_pos(&position::Position::from_fen("rnbqkbnr/pppppppp/8/8/2BPBNP1/2N1Q3/PPPP1P1P/R3K2R b KQkq g3 0 1").unwrap());
+    let bl = BitList::from_pos(&Position::from_fen("rnbqkbnr/pppppppp/8/8/2BPBNP1/2N1Q3/PPPP1P1P/R3K2R b KQkq g3 0 1").unwrap());
 
 
 
@@ -116,17 +116,23 @@ fn main() {
     a.reverse().print_out();
     let mut posnew = PosNow::new_from_field(FieldUsize(5, 9).to_field());
     println!("{:?}", posnew.sfh_to_field());
-    pf_stuck(FieldUsize(7, 9), FieldUsize(4, 8), &mut bl, &mut posnew).unwrap().print_out();
+    let test_mi = pf_stuck(FieldUsize(7, 9), FieldUsize(4, 8), &mut bl, &mut posnew).unwrap();
+    test_mi.print_out();
     println!("{:?}", posnew.sfh_to_field());
 
-    /*let mut m2 = motor::Mtr::new(true, 5, 6, 13).unwrap();
-    m2.enable_motor();
-    m2.move_steps(2000, true, 4.5, &mut PosNow::new()).unwrap()*/
+    
     let mut test_vec = vec![0,1,2,3,4,5,6,7];
     test_vec.drain(2..5);
     println!("{:?}", test_vec);
-
-    let mut testmachine = Machine::new((true, 2, 3, 4), (false, 5, 6, 7), 9).unwrap();
-    testmachine.set_position("rnbqkbnr/pppppppp/8/8/8/4PPPP/4PPPP/RNBQKBNR b KQkq - 0 1").unwrap();
-    testmachine.print_status();
+    
+    /*let mut m1 = motor::Mtr::new(true, 5, 6, 13).unwrap();
+    m1.enable_motor();
+    m1.move_steps(1600, true, 5.0, &mut posnew);
+    delay::delayms(200);
+    m1.move_steps(400, false, 4.0, &mut posnew);
+    delay::delayms(200);
+    m1.move_steps(800, true, 6.0, &mut posnew);
+    delay::delayms(200);
+    m1.move_steps(2000, false, 5.0, &mut posnew);
+    m1.disable_motor()*/
 }
