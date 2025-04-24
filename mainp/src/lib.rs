@@ -124,13 +124,14 @@ pub struct Game {
     pub bs: bool,
     pub welo: u32,
     pub belo:  u32,
-    pub sftime: u32
+    pub sftime: u32,
+    pub currentmove: Option<String>
 }
 
 impl Game {
     pub fn new(xmtr: (bool, u8, u8, u8), ymtr: (bool, u8, u8, u8), magnet: u8) -> Result<Self, MachineErrors> {
         let machine = Machine::new(xmtr, ymtr, magnet)?;
-        Ok(Game { machine , wm: false, bm: false, ws: false, bs: false, welo: 1500, belo: 1500, sftime: 1000 })
+        Ok(Game { machine , wm: false, bm: false, ws: false, bs: false, welo: 1500, belo: 1500, sftime: 1000, currentmove: None })
     }
 
     pub fn set_settings(&mut self, set: (bool, bool, bool, bool, u32, u32, u32)) {
@@ -141,6 +142,10 @@ impl Game {
         self.welo = set.4;
         self.belo = set.5;
         self.sftime = set.6;
+    }
+
+    pub fn next() {
+
     }
 }
 

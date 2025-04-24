@@ -230,14 +230,14 @@ pub mod position {
         pub fn new_reset() -> Self {
             Position {
                 colorw: true,
-                fields: [[Piece::None,Piece::None,Piece::None,Piece::Rook(false),Piece::Knight(false),Piece::Bishop(false),Piece::Queen(false),Piece::King(false),Piece::Bishop(false),Piece::Knight(false),Piece::Rook(false),Piece::None,Piece::None,Piece::None],
+                fields: [[Piece::None,Piece::None,Piece::None,Piece::Rook(false),Piece::Knight(false),Piece::Bishop(false),Piece::Queen(false),Piece::King(false),Piece::Bishop(false),Piece::Knight(false),Piece::Rook(false),Piece::None,Piece::None,Piece::Queen(false)],
                     [Piece::None,Piece::None,Piece::None,Piece::Pawn(false),Piece::Pawn(false),Piece::Pawn(false),Piece::Pawn(false),Piece::Pawn(false),Piece::Pawn(false),Piece::Pawn(false),Piece::Pawn(false),Piece::None,Piece::None,Piece::None],
                     [Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None],
                     [Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None],
                     [Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None],
                     [Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None,Piece::None],
                     [Piece::None,Piece::None,Piece::None,Piece::Pawn(true),Piece::Pawn(true),Piece::Pawn(true),Piece::Pawn(true),Piece::Pawn(true),Piece::Pawn(true),Piece::Pawn(true),Piece::Pawn(true),Piece::None,Piece::None,Piece::None],
-                    [Piece::None,Piece::None,Piece::None,Piece::Rook(true),Piece::Knight(true),Piece::Bishop(true),Piece::Queen(true),Piece::King(true),Piece::Bishop(true),Piece::Knight(true),Piece::Rook(true),Piece::None,Piece::None,Piece::None]],
+                    [Piece::Queen(true),Piece::None,Piece::None,Piece::Rook(true),Piece::Knight(true),Piece::Bishop(true),Piece::Queen(true),Piece::King(true),Piece::Bishop(true),Piece::Knight(true),Piece::Rook(true),Piece::None,Piece::None,Piece::None]],
                 moves: 0,
                 en_passant: "-".to_string(),
                 rochade: [Piece::King(true),Piece::Queen(true),Piece::King(false),Piece::Queen(false)],
@@ -389,6 +389,8 @@ pub mod position {
                     }
                 }
             }
+            pos.add_rest(Piece::Queen(true)).unwrap();
+            pos.add_rest(Piece::Queen(false)).unwrap();
             Ok(pos)
 
         }
@@ -396,28 +398,30 @@ pub mod position {
         pub fn add_rest(&mut self, pce: Piece) -> Result<(usize, usize), CleaningError> {
             match pce {
                 Piece::Queen(true) => {
-                    self.fields[7][0] = Piece::Queen(true);
-                    Ok((7, 0))
+                    if self.field_is_empty((7, 0)) {
+                        self.fields[7][0] = Piece::Queen(true);
+                        Ok((7, 0))
+                    } else {
+                        self.fields[7][1] = Piece::Queen(true);
+                        Ok((7, 1))
+                    }
                 },
                 Piece::Queen(false) => {
-                    self.fields[0][13] = Piece::Queen(false);
-                    Ok((0, 13))
+                    if self.field_is_empty((0, 13)) {
+                        self.fields[0][13] = Piece::Queen(true);
+                        Ok((0, 13))
+                    } else {
+                        self.fields[0][12] = Piece::Queen(true);
+                        Ok((0, 12))
+                    }
                 },
                 Piece::King(true) => {
-                    if !self.field_is_empty((7, 0)) {
-                        self.fields[7][1] = Piece::King(true);
-                        Ok((7, 1))
-                    } else {
-                        Err(CleaningError::KingBeforeQueen)
-                    }
+                    self.fields[7][2] = Piece::King(true);
+                    Ok((7, 2))
                 },
                 Piece::King(false) => {
-                    if !self.field_is_empty((0, 13)) {
-                        self.fields[0][12] = Piece::King(false);
-                        Ok((0, 12))
-                    } else {
-                        Err(CleaningError::KingBeforeQueen)
-                    }
+                    self.fields[0][11] = Piece::King(true);
+                    Ok((0, 11))
                 },
                 Piece::Rook(true) => {
                     let (r, s) = (6, 0);

@@ -1,7 +1,7 @@
 use std::{cell::{Cell, RefCell}, rc::Rc};
 
 use adw::prelude::*;
-use gtk::{glib::{self, clone}, Align, ApplicationWindow, Box, Button, CheckButton, Frame, Label, Orientation, SpinButton, Stack, StackSwitcher, ToggleButton};
+use gtk::{gio::Icon, glib::{self, clone}, Align, ApplicationWindow, Box, Button, CheckButton, Entry, Frame, Label, Orientation, SpinButton, Stack, StackSwitcher, ToggleButton};
 use mainp::{Game, Machine, MachineErrors};
 
 const APP_ID: &str = "org.gtk_rs.GObjectProperties3";
@@ -25,7 +25,7 @@ fn main() -> glib::ExitCode {
 
 
 fn build_ui(app: &adw::Application) {
-    let mut game = Rc::new(RefCell::new(Game {machine: Machine::dummy(), wm: false, bm: false, ws: false, bs: false, welo: 2000, belo: 2000, sftime: 1000 }));
+    let mut game = Rc::new(RefCell::new(Game {machine: Machine::dummy(), wm: false, bm: false, ws: false, bs: false, welo: 2000, belo: 2000, sftime: 1000, currentmove: None }));
     let wsbutton = CheckButton::with_label("   White moves with Stockfish -> Elo:");
     let bsbutton = CheckButton::with_label("   Black moves with Stockfish -> Elo:");
     let wmbutton = CheckButton::with_label("   White moves automatically");
@@ -37,6 +37,12 @@ fn build_ui(app: &adw::Application) {
         .label("Start Game")
         .build();
     let savebutton = Button::with_label("Save Settings");
+    let moveentry = Entry::builder()
+        .placeholder_text("Enter your move:")
+        .secondary_icon_name("object-select-symbolic")
+        //.secondary_icon_gicon(secondary_icon_gicon)
+        .secondary_icon_tooltip_text("Check move")
+        .build();
     sftime.set_value(1000.0);
     welo.set_sensitive(false);
     belo.set_sensitive(false);
@@ -135,6 +141,7 @@ fn build_ui(app: &adw::Application) {
     setupbox.append(&sftimebox);
     setupbox.append(&Frame::builder().child(&statuslabel).margin_top(12).build());
 
+    statusbox.append(&moveentry);
     statusbox.append(&startbutton);
 
     mainbox.append(&stackswitcher);
