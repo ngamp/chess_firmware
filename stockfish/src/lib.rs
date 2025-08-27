@@ -6,7 +6,7 @@ use std::{
 };
 
 #[cfg(target_arch = "aarch64")]
-const PATH_TO_STOCKFISH: &str = "../stockfish/sfs/stockfish_raspi";
+const PATH_TO_STOCKFISH: &str = "../stockfish/sfs/sf_raspi";
 #[cfg(target_arch = "aarch64")]
 const  WELCOME_MESSAGE: &str = "Stockfish dev-20250126-f50d52aa by the Stockfish developers (see AUTHORS file)\nreadyok\n";
 

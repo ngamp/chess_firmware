@@ -1,5 +1,5 @@
 use mctrl::{delay::delaymics, motor::{rps_to_del, Magnet, MotorInstructions, MotorMoveType, Mtr, MtrErrors, PosNow, Speeds}};
-use position::position::{MoveError, Position};
+use position::position::{ctim, MoveError, MoveType, PFError, PFIType, Position, State, UpdateError};
 
 #[derive(Debug)]
 pub enum MachineErrors {
@@ -8,11 +8,11 @@ pub enum MachineErrors {
 }
 #[derive(Debug)]
 pub struct Machine {
-    xmtr: Mtr,
-    ymtr: Mtr,
-    magnet: Magnet,
-    position: Position,
-    pos_mtr: PosNow,
+    pub xmtr: Mtr,
+    pub ymtr: Mtr,
+    pub magnet: Magnet,
+    pub position: Position,
+    pub pos_mtr: PosNow,
 }
 
 impl Machine {
@@ -77,6 +77,8 @@ impl Machine {
         println!("Motorposition: {:?}", self.pos_mtr);
     }
 
+
+
     pub fn do_mi(&mut self, mi: MotorInstructions) {
         self.xmtr.enable_motor();
         self.ymtr.enable_motor();
@@ -128,6 +130,18 @@ pub struct Game {
     pub currentmove: Option<String>
 }
 
+#[derive(Debug)]
+pub enum ExecError {
+    Pathfinding(PFError),
+    Executing
+}
+
+impl From<PFError> for ExecError {
+    fn from(err: PFError) -> Self {
+        ExecError::Pathfinding(err)
+    }
+}
+
 impl Game {
     pub fn new(xmtr: (bool, u8, u8, u8), ymtr: (bool, u8, u8, u8), magnet: u8) -> Result<Self, MachineErrors> {
         let machine = Machine::new(xmtr, ymtr, magnet)?;
@@ -146,6 +160,30 @@ impl Game {
 
     pub fn next() {
 
+    }
+
+    pub fn execute_move(&mut self, mov: Vec<PFIType>) -> Result<(), ExecError> {
+        let mi = self.machine.position.pathfinding(&mov, &mut self.machine.pos_mtr)?;
+        mi.print_out();
+        self.machine.do_mi(mi);
+        self.machine.print_status();
+        Ok(())
+    }
+
+    pub fn get_current_color(&self) -> bool {
+        self.machine.position.colorw
+    }
+
+    pub fn ctim(coordinate: &str) -> Result<((usize, usize), (usize, usize)), MoveError> {
+        ctim(coordinate)
+    }
+
+    pub fn check_possible_move(&self, mov: &str) -> Result<MoveType, MoveError> {
+        Ok(self.machine.position.validate_move_possibility(mov)?)
+    }
+
+    pub fn update(&mut self, ind_move: ((usize, usize), (usize, usize)), coord_move: &str, elo: u32, time: u32) -> Result<(State, Vec<PFIType>), UpdateError> {
+        self.machine.position.update(ind_move, coord_move, elo, time)
     }
 }
 

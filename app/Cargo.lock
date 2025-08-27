@@ -9,6 +9,7 @@ dependencies = [
  "gtk4",
  "libadwaita",
  "mainp",
+ "position",
 ]
 
 [[package]]

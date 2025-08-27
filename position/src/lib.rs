@@ -522,6 +522,7 @@ pub mod position {
                 Err(rr) => return Err(UpdateError::ImpossibleMove(rr)),
                 Ok(mt) => mt
             };
+            let ind_move    = ind_move;
             let piece = self.index_to_piece(ind_move.0).unwrap(); //existence already checked at validate_move_possibility
             // inverting color
             println!("{:?}", piece);
@@ -1058,6 +1059,13 @@ pub mod position {
             _ => return Err(MoveError::UnrightCoordinates)
         };
         Ok((num, lett))
+    }
+
+    pub fn ctim(coordinate: &str) -> Result<((usize, usize), (usize, usize)), MoveError> {
+        let split = coordinate.split_at(2);
+        let first = coordinates_to_index(split.0)?;
+        let second = coordinates_to_index(split.1)?;
+        Ok((first, second))
     }
 
     #[derive(Debug)]
