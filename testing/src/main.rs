@@ -1,8 +1,8 @@
 #![allow(unused_imports)]
 use mctrl::{motor::{Field, FieldUsize, MotorInstructions, Mtr, PosNow, Speeds}, *};
-use position::position::{pf_custom_helper, pf_stuck, BitList, OneFML, Position};
+use position::position::{pathfinding_custom, pf_custom_helper, pf_stuck, BitList, OneFML, PFIType, Position};
 use stockfish::get_move;
-use mainp::*;
+use mainp::Game;
 
 
 fn main() {
@@ -76,7 +76,7 @@ fn main() {
     println!("{:?}", res);
     println!("{:?}", a);
 
-    println!("{}", std::env::consts::ARCH);*/
+    println!("{}", std::env::consts::ARCH);
 
     
     let a = motor::MotorInstructions::field_to_field(Field::ind_to_relative_ind((4, 4)), Field::ind_to_relative_ind((2, 2)), Speeds::Homingspeed, true, &mut PosNow::new_from_field(Field::ind_to_relative_ind((5, 7))));
@@ -126,16 +126,26 @@ fn main() {
     test_vec.drain(2..5);
     println!("{:?}", test_vec);
 
-    println!("{:?}", get_move(&Position::from_fen("8/8/8/4k3/8/7B/2K5/8 w - - 0 1").unwrap().to_fen(), 1700, 1000));
+    println!("{:?}", get_move(&Position::from_fen("8/8/8/4k3/8/7B/2K5/8 w - - 0 1").unwrap().to_fen(), 1700, 1000));*/
     
-    let mut m1 = motor::Mtr::new(true, 5, 6, 13).unwrap();
+    let mut m1 = motor::Mtr::new(true, 16, 20, 21).unwrap();
     m1.enable_motor();
-    m1.move_steps(1600, true, 5.0, &mut posnew);
+    m1.move_steps(1600, true, 6.0);
     delay::delayms(200);
-    m1.move_steps(400, false, 4.0, &mut posnew);
+    m1.move_steps(900, false, 5.0);
     delay::delayms(200);
-    m1.move_steps(800, true, 6.0, &mut posnew);
+    m1.move_steps(800, true, 2.0);
     delay::delayms(200);
-    m1.move_steps(2000, false, 5.0, &mut posnew);
-    m1.disable_motor()
+    m1.move_steps(2000, false, 4.5);
+    m1.disable_motor();
+
+    let mut mmmm = Position::from_fen("rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 1").unwrap();
+    println!("{:?}", mmmm);
+    let vmove = vec![PFIType::Custom((3, 6), (7, 13))/*, PFIType::NMove((4, 7), (3, 6))*/];
+    let mut posnow = PosNow::new_from_field(Field::from_tuple((0, 0)));
+    println!("PosNow: {:?}", posnow);
+    mmmm.pathfinding(&vmove, &mut posnow).unwrap().print_out();
+
+    //pathfinding_custom(FieldUsize::from_tuple((3 as usize, 6 as usize)), FieldUsize::from_tuple((7 as usize, 13 as usize)), &mut BitList::from_pos(&Position::from_fen("rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 1").unwrap()), &mut PosNow::new()).unwrap().print_out();
+    //BitList::from_pos(&Position::from_fen("rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 1").unwrap()).print_out();
 }

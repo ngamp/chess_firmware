@@ -4,8 +4,8 @@ pub const HOMINGSPEED: f32 = 5.0;
 pub const NMOVESPEED: f32 = 2.0;
 pub const OFFSETRATIO: f32 = 1.0/3.0;
 pub const OFFSETSPEED: f32 = 1.5;
-pub const NOFIGURESPEED: f32 = 4.5;
-pub const TRANSPORTSPEED: f32 = 4.0;
+pub const NOFIGURESPEED: f32 = 2.5;
+pub const TRANSPORTSPEED: f32 = 2.0;
 
 pub mod motor {
 
@@ -99,12 +99,12 @@ pub mod motor {
             self.enb_pin.as_ref().unwrap().is_set_high()
         }
 
-        pub fn move_steps(&mut self, steps: u32, direction: bool, speed: f32, pos: &mut PosNow) {
+        pub fn move_steps(&mut self, steps: u32, direction: bool, speed: f32) {
             let enbpin = self.enb_pin.as_mut().unwrap();
             if enbpin.is_set_low() {
                 enbpin.set_high();
             };
-            pos.update(self.xaxis, steps, direction);
+            //pos.update(self.xaxis, steps, direction);
             if direction {
                 self.dirpin.as_mut().unwrap().set_high();
             } else {
@@ -164,6 +164,7 @@ pub mod motor {
     }
 
     #[derive(Debug)]
+    #[derive(Clone, Copy)]
     pub struct PosNow {
         xmtr: i32,
         ymtr: i32
@@ -345,6 +346,7 @@ pub mod motor {
         pub fn diagonal(f1: Field, f2: Field, speed: Speeds, magnet: bool, pos: &mut PosNow) -> Self {
             let mut res = Self::new();
             if pos.sfh_to_field() != f1 {
+                println!("was here gdamn {:?}", pos);
                 res.append_wo_pos(Self::field_to_field(pos.sfh_to_field(), f1, Speeds::NoFigurespeed, false, pos));
             };
             let vf = f2 - f1;
@@ -370,6 +372,8 @@ pub mod motor {
         }
 
         pub fn write_to_pos(self, pos: &mut PosNow) -> Self {
+            println!("pos before wr: {:?}", pos);
+            println!("write_to_pos: {:?}", self);
             let instructions = self.instructions.clone();
             for instruction in instructions {
                 match instruction {
@@ -381,6 +385,7 @@ pub mod motor {
                     }
                 }
             }
+            println!("pos after wr: {:?}", pos);
             self
         }
 

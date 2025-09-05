@@ -245,6 +245,12 @@ pub mod position {
             }
         }
 
+        pub fn print_out(&self) {
+            for row in self.fields {
+                println!("{:?}", row);
+            }
+        }
+
         pub fn to_fen(&self) -> String {
             let mut res = String::new();
     
@@ -517,7 +523,8 @@ pub mod position {
             }
         }
 
-        pub fn update(&mut self, ind_move: ((usize, usize), (usize, usize)), coord_move: &str, elo: u32, time: u32) -> Result<(State, Vec<PFIType>), UpdateError> {
+        pub fn update(&mut self, ind_move: ((usize, usize), (usize, usize)), coord_move: &str, elo: u32, time: u32) -> Result<(State, Vec<PFIType>, Position), UpdateError> {
+            let cppos = self.clone(); 
             let mt = match self.validate_move_possibility(coord_move) {
                 Err(rr) => return Err(UpdateError::ImpossibleMove(rr)),
                 Ok(mt) => mt
@@ -572,7 +579,23 @@ pub mod position {
                 MoveType::Normal(p) => {
                     self.fields[efr][efs] = p;
                     self.fields[sfr][sfs] = Piece::None;
-                    moves.push(PFIType::NMove(ind_move.0, ind_move.1));
+                    match (p, efr) {
+                        (Piece::Knight(_), _) => moves.push(PFIType::Custom(ind_move.0, ind_move.1)),
+                        (Piece::Pawn(col), 0 | 7) => {
+                            self.fields[efr][efs] = Piece::Queen(col);
+                            let rest_ind = match self.add_rest(Piece::Pawn(col)) {
+                                Ok(t) => t,
+                                Err(rr) => return Err(UpdateError::CleaningError(rr))
+                            };
+                            moves.push(PFIType::Custom(ind_move.0, rest_ind));
+                            let queen_ind = match col {
+                                true => if self.index_to_piece((7, 1)) == Some(Piece::Queen(true)) { (7, 1) } else { (7, 0) },
+                                false => if self.index_to_piece((0, 12)) == Some(Piece::Queen(false)) { (0, 12) } else { (0, 13) }
+                            };
+                            moves.push(PFIType::Custom(queen_ind, ind_move.1));
+                        }
+                        _ => moves.push(PFIType::NMove(ind_move.0, ind_move.1))
+                    }
                 },
                 MoveType::Capturing(p, cp) => {
                     self.since_pawn_major = 0;
@@ -582,8 +605,25 @@ pub mod position {
                     };
                     moves.push(PFIType::Custom(ind_move.1, rest_ind));
                     self.fields[sfr][sfs] = Piece::None;
-                    self.fields[efr][efs] = p;
-                    moves.push(PFIType::NMove(ind_move.0, ind_move.1));
+                    match (p,  efr){
+                        (Piece::Pawn(col), 0 | 7) => {
+                            self.fields[efr][efs] = Piece::Queen(col);
+                            let rest_ind2 = match self.add_rest(Piece::Pawn(col)) {
+                                Ok(t) => t,
+                                Err(rr) => return Err(UpdateError::CleaningError(rr))
+                            };
+                            moves.push(PFIType::Custom(ind_move.0, rest_ind2));
+                            let queen_ind = match col {
+                                true => if self.index_to_piece((7, 1)) == Some(Piece::Queen(true)) { (7, 1) } else { (7, 0) },
+                                false => if self.index_to_piece((0, 12)) == Some(Piece::Queen(false)) { (0, 12) } else { (0, 13) }
+                            };
+                            moves.push(PFIType::Custom(queen_ind, ind_move.1));
+                        },
+                        _ => {
+                            self.fields[efr][efs] = p;
+                            moves.push(PFIType::NMove(ind_move.0, ind_move.1));
+                        }
+                    }
                 },
                 MoveType::EnPassant(bind) => {
                     let beaten_piece = match self.index_to_piece(bind) {
@@ -625,7 +665,7 @@ pub mod position {
                     }
                 }
             };
-            Ok((state, moves))
+            Ok((state, moves, cppos))
         }
 
         pub fn validate_move_possibility(&self, cmove: &str) -> Result<MoveType, MoveError> {
@@ -712,12 +752,20 @@ pub mod position {
             }
         }
 
-        pub fn pathfinding(&self, vmove: &Vec<PFIType>, pos: &mut PosNow) -> Result<MotorInstructions, PFError> {
+        pub fn pathfinding(&mut self, vmove: &Vec<PFIType>, pos: &mut PosNow) -> Result<MotorInstructions, PFError> {
+            println!("pos start pf:");
+            println!("{:?}", pos);
             let mut res = MotorInstructions::new();
             let mut bitlist = BitList::from_pos(self);
+            println!("{:?}", vmove);
             for mov in vmove {
+                res.print_out();
+                println!("sstk {:?}", mov);
                 match *mov {
                     PFIType::NMove(start, end) => {
+                        self.print_out();
+                        println!("now");
+                        println!("{:?}", pos);
                         if start.0 == end.0 || start.1 == end.1 {
                             res.append_wo_pos(MotorInstructions::field_to_field(Field::ind_to_relative_ind(start), Field::ind_to_relative_ind(end), Speeds::NMovespeed, true, pos));
                         } else if start.0.abs_diff(end.0) == start.1.abs_diff(end.1) {
@@ -725,15 +773,25 @@ pub mod position {
                         } else {
                             return Err(PFError::MoveDoesNotFitType(*mov))
                         }
+                        self.fields[end.0][end.1] = self.fields[start.0][start.1];
+                        self.fields[start.0][start.1] = Piece::None;
+                        bitlist.update(vec![start], vec![], vec![end]);
                     },
                     PFIType::Rochade(p, coords) => {
+                        self.print_out();
                         res.append_wo_pos(pathfinding_rochade(p, coords, &mut BitList::from_pos(self), pos)?)
                     },
                     PFIType::Custom(sf, ef) => {
+                        bitlist.print_out();
+                        self.print_out();
                         res.append_wo_pos(pathfinding_custom(FieldUsize::from_tuple(sf), FieldUsize::from_tuple(ef), &mut bitlist, pos)?);
+                        self.fields[ef.0][ef.1] = self.fields[sf.0][sf.1];
+                        self.fields[sf.0][sf.1] = Piece::None;
+                        bitlist.update(vec![sf], vec![], vec![ef]);
                     }
                 };
             };
+            res.print_out();
             Ok(res)
         }
     }
@@ -756,11 +814,17 @@ pub mod position {
         }
 
         pub fn to_mi(self, pos: &mut PosNow) -> MotorInstructions {
+            println!("to_mi:");
+            println!("{:?},", pos);
             let movl = self.0;
+            println!("mlllll    {:?},", movl);
             let mut res = MotorInstructions::new();
             if pos.sfh_to_field() != movl[0].to_field() {
+                println!("0 and start not equal");
                 res.append_wo_pos(MotorInstructions::field_to_field(pos.sfh_to_field(), movl[0].to_field(), Speeds::NoFigurespeed, false, pos));
             };
+            println!("AADS");
+            println!("{:?},", pos);
             let mut i = 0;
             while i+1 < movl.len() {
                 let vfield = movl[i+1].to_field()-movl[i].to_field();
@@ -772,7 +836,8 @@ pub mod position {
                         res.append(MotorInstructions::from_vfield(vfield, Speeds::Transportspeed, true), pos);
                     }
                 };
-                i += 1
+                i += 1;
+                println!("{:?},", pos);
             };
             res
         }
@@ -848,6 +913,9 @@ pub mod position {
         let movlist = OneFML::new();
         match pf_custom_helper(sf, sf, ef, bl, movlist) {
             Ok(ml) => {
+                println!("found path:");
+                ml.clone().ease().to_mi(&mut pos.clone()).print_out();
+                println!("was there");
                 let mut res = ml.ease().to_mi(pos);
                 res.ease();
                 Ok(res)
@@ -946,7 +1014,7 @@ pub mod position {
 
     pub fn pf_custom_helper(ogsf: FieldUsize, sf: FieldUsize, ef: FieldUsize, bl: &mut BitList, mut movlist: OneFML) -> Result<OneFML, PFError> {
         //bl.print_out();
-        println!("{:?}", movlist);
+        //println!("{:?}", movlist);
         if sf == ef {
             let mut res = OneFML::new();
             res.add(ogsf);

@@ -2,12 +2,12 @@ use std::{cell::{Cell, RefCell}, rc::Rc};
 use position::position::{DrawR, State};
 use adw::prelude::*;
 use gtk::{glib::{self, clone}, Align, ApplicationWindow, Box, Button, CheckButton, Entry, Label, Orientation, SpinButton, Stack, StackSwitcher, ToggleButton};
-use mainp::{Game, Machine, MachineErrors};
+use mainp::{Game, Machine, MachineErrors, SFResEx};
 
 const APP_ID: &str = "org.gtk_rs.GObjectProperties3";
-const XDIRPIN: u8 = 23;
-const XSTEPPIN: u8 = 24;
-const XENBPIN: u8 =  25;
+const XDIRPIN: u8 = 16;
+const XSTEPPIN: u8 = 20;
+const XENBPIN: u8 =  21;
 const YDIRPIN: u8 = 5;
 const YSTEPPIN: u8 = 6;
 const YENBPIN: u8 =  13;
@@ -370,59 +370,97 @@ fn build_ui(app: &adw::Application) {
         moveentry.set_text(&t);
         }));
     moveentry.connect_icon_press(move |ent, _| {
-        let text = ent.text().to_string().trim().to_string();
-        if text.len() > 3 {
-            let mut gm = game.borrow_mut();
-            match gm.check_possible_move(&text) {
-                Ok(ty) => {
-                    statuslabel.set_text(&format!("Move valid: {:?}", ty));
-                    match gm.update(Game::ctim(&text).unwrap(), &text, 3000, 1000) {
-                        Ok((st, pfi)) => {
-                            match st {
-                                State::Mate(true) => statuslabel.set_text("Checkmate! White wins!"),
-                                State::Mate(false) => statuslabel.set_text("Checkmate! Black wins!"),
-                                State::Draw(DrawR::FiftyMove) => statuslabel.set_text("Draw by fifty-move rule"),
-                                State::Draw(DrawR::Repetition) => statuslabel.set_text("Draw by repetition"),
-                                State::Draw(DrawR::Stalemate) => statuslabel.set_text("Draw by stalemate"),
-                                State::Normal => statuslabel.set_text("Move made successfully"),
-                                _ => {}
-                            };
-                            ent.set_text("");
-                            if gm.get_current_color() {
-                                if gm.wm {
-                                    //let currentpos = &gm.machine.pos_mtr;
-                                    match gm.execute_move(pfi) {
-                                        Ok(_) => statuslabel.set_text("White moved automatically and successfully"),
-                                        Err(rr) => statuslabel.set_text(&format!("Failed to make automatic white move: {:?}", rr))
-                                    }
-                                }
-                            } else {
-                                if gm.bm {
-                                    match gm.execute_move(pfi) {
-                                        Ok(_) => statuslabel.set_text("Black moved automatically and successfully"),
-                                        Err(rr) => statuslabel.set_text(&format!("Failed to make automatic bblack move: {:?}", rr))
-                                    }
-                                }
-                            }
-                        },
-                        Err(rr) => statuslabel.set_text(&format!("Failed to update position: {:?}", rr).as_str())
-                    }},
-                Err(rr) => {//makemove.set_sensitive(false);
-                    statuslabel.set_text(&format!("Invalid move: {:?}", rr))}
-            }
-            //let res = pos.position.update(, &text, if pos.position.colorw {welo.value_as_int() as u32} else {belo.value_as_int() as u32}, sftime.value_as_int() as u32)
-        } else {
-            statuslabel.set_text("Move too short");
-        };
+        loop_moves(&mut game.borrow_mut(), ent, &statuslabel);
         });
 // endregion
-    
-    
-    
 }
 
 fn get_game() -> Result<Game, MachineErrors> {
     Game::new((true, XDIRPIN, XSTEPPIN, XENBPIN), (false, YDIRPIN, YSTEPPIN, YENBPIN), MAGNETPIN)
+}
+
+fn loop_moves(gm: &mut Game, ent: &Entry, statuslabel: &Label) {
+    todo!()
+}
+
+fn handmove(gm: &mut Game, ent: &Entry, statuslabel: &Label) {
+    let text = ent.text().to_string().trim().to_string();
+    if text.len() > 3 {
+        movcore(gm, ent, statuslabel, &text);
+        //let res = pos.position.update(, &text, if pos.position.colorw {welo.value_as_int() as u32} else {belo.value_as_int() as u32}, sftime.value_as_int() as u32)
+    } else {
+        statuslabel.set_text("Move too short");
+    };
+}
+
+fn sfmove(gm: &mut Game, ent: &Entry, statuslabel: &Label) {
+    match (gm.get_current_color(), gm.ws, gm.bs) {
+        (true,  true, _) | (false, _, true) => {
+            match gm.get_sf_move() {
+                Ok(mv) => {
+                    match mv {
+                        SFResEx::Normal(movtext) => {
+                            movcore(gm, ent, statuslabel, &movtext);
+                        }, SFResEx::Stalemate => {
+                            statuslabel.set_text("Draw by stalemate! (failed sfmove)");
+                        }, SFResEx::Mate => {
+                            statuslabel.set_text("Mate! (failed sfmove)");
+                        }
+                    }
+                },
+                Err(rr) => statuslabel.set_text(&format!("Failed to get Stockfish move: {:?}", rr))
+            }
+        },
+        _ => {}
+    };
+}
+
+fn movcore(gm: &mut Game, ent: &Entry, statuslabel: &Label, movtext: &str) {
+    match gm.check_possible_move(&movtext) {
+        Ok(ty) => {
+            statuslabel.set_text(&format!("Move valid: {:?}", ty));
+            match gm.update(Game::ctim(&movtext).unwrap(), &movtext, 3000, 1000) {
+                Ok((st, pfi, oldpos)) => {
+                    println!("there");
+                    println!("{:?}, {:?}", gm.wm, gm.bm);
+                    if !gm.get_current_color() {
+                        if gm.wm {
+                            //let currentpos = &gm.machine.pos_mtr;
+                            statuslabel.set_text("Now moving automatically");
+                            match gm.execute_move(pfi, oldpos) {
+                                Ok(_) => statuslabel.set_text("White moved automatically and successfully"),
+                                Err(rr) => statuslabel.set_text(&format!("Failed to make automatic white move: {:?}", rr))
+                            }
+                        }
+                    } else {
+                        if gm.bm {
+                            statuslabel.set_text("Now moving automatically");
+                            match gm.execute_move(pfi, oldpos) {
+                                Ok(_) => statuslabel.set_text("Black moved automatically and successfully"),
+                                Err(rr) => statuslabel.set_text(&format!("Failed to make automatic black move: {:?}", rr))
+                            }
+                        }
+                    }
+                    ent.set_text("");
+                    match st {
+                        State::Mate(true) => {
+                            statuslabel.set_text("Checkmate! White wins!");
+                        },
+                        State::Mate(false) => statuslabel.set_text("Checkmate! Black wins!"),
+                        State::Draw(DrawR::FiftyMove) => statuslabel.set_text("Draw by fifty-move rule"),
+                        State::Draw(DrawR::Repetition) => statuslabel.set_text("Draw by repetition"),
+                        State::Draw(DrawR::Stalemate) => statuslabel.set_text("Draw by stalemate"),
+                        State::Normal => statuslabel.set_text("Move made successfully"),
+                        _ => {}
+                    };
+                    gm.machine.print_status();
+                },
+                Err(rr) => {statuslabel.set_text(&format!("Failed to update position: {:?}", rr).as_str());
+                    println!("fail")}
+            }},
+        Err(rr) => {//makemove.set_sensitive(false);
+            statuslabel.set_text(&format!("Invalid move: {:?}", rr))}
+    };
 }
 
 //(wmbutton.is_active(), bmbutton.is_active(), wsbutton.is_active(), bsbutton.is_active(), welo.value_as_int().abs() as u32, belo.value_as_int().abs() as u32, sftime.value_as_int().abs() as u32)

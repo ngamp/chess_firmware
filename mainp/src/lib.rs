@@ -1,5 +1,7 @@
 use mctrl::{delay::delaymics, motor::{rps_to_del, Magnet, MotorInstructions, MotorMoveType, Mtr, MtrErrors, PosNow, Speeds}};
 use position::position::{ctim, MoveError, MoveType, PFError, PFIType, Position, State, UpdateError};
+use stockfish::{SFErrors, SFResults};
+pub use stockfish::SFResults as SFResEx;
 
 #[derive(Debug)]
 pub enum MachineErrors {
@@ -67,19 +69,21 @@ impl Machine {
             ysteppin.set_low();
             delaymics(del);
         };
-        self.pos_mtr.update(true, steps, xdir);
-        self.pos_mtr.update(false, steps, ydir);
+        //self.pos_mtr.update(true, steps, xdir);
+        //self.pos_mtr.update(false, steps, ydir);
     }
 
     pub fn print_status(&self) {
         println!("Machine:");
-        println!("xmtr enabled: {}, ymtr enabled: {}", self.xmtr.is_enabled(), self.ymtr.is_enabled());
+        println!("xmtr enabled: {}, ymtr enabled: {}, magnet enabled: {}", self.xmtr.is_enabled(), self.ymtr.is_enabled(), self.magnet.status());
         println!("Motorposition: {:?}", self.pos_mtr);
+        //println!("Position:\n{:?}", self.position.;
     }
 
 
 
     pub fn do_mi(&mut self, mi: MotorInstructions) {
+        println!("starting move: {:?}", self.pos_mtr);
         self.xmtr.enable_motor();
         self.ymtr.enable_motor();
         for instruction in mi.instructions {
@@ -90,7 +94,7 @@ impl Machine {
                     } else {
                         self.magnet.off();
                     };
-                    self.xmtr.move_steps(mm.len, mm.dir, mm.speed.to_f32(), &mut self.pos_mtr);
+                    self.xmtr.move_steps(mm.len, mm.dir, mm.speed.to_f32());
                 },
                 MotorMoveType::StraightY(mm) => {
                     if mm.magnet {
@@ -98,7 +102,7 @@ impl Machine {
                     } else {
                         self.magnet.off();
                     };
-                    self.ymtr.move_steps(mm.len, mm.dir, mm.speed.to_f32(), &mut self.pos_mtr);
+                    self.ymtr.move_steps(mm.len, mm.dir, mm.speed.to_f32());
                 },
                 MotorMoveType::Diagonal(mm) => {
                     if mm.magnet {
@@ -111,6 +115,7 @@ impl Machine {
             };
             delaymics(100000);
         };
+        println!("finished move: {:?}", self.pos_mtr);
         self.xmtr.disable_motor();
         self.ymtr.disable_motor();
         self.magnet.off();
@@ -162,8 +167,13 @@ impl Game {
 
     }
 
-    pub fn execute_move(&mut self, mov: Vec<PFIType>) -> Result<(), ExecError> {
-        let mi = self.machine.position.pathfinding(&mov, &mut self.machine.pos_mtr)?;
+    pub fn execute_move(&mut self, mov: Vec<PFIType>, mut oldpos: Position) -> Result<(), ExecError> {
+        println!("Executing move: {:?}", mov);
+        println!("Old position:");
+        oldpos.print_out();
+        println!("Current motor position: {:?}", self.machine.pos_mtr);
+        let mi = oldpos.pathfinding(&mov, &mut self.machine.pos_mtr)?;
+        println!("position now: {:?}", self.machine.pos_mtr);
         mi.print_out();
         self.machine.do_mi(mi);
         self.machine.print_status();
@@ -182,8 +192,12 @@ impl Game {
         Ok(self.machine.position.validate_move_possibility(mov)?)
     }
 
-    pub fn update(&mut self, ind_move: ((usize, usize), (usize, usize)), coord_move: &str, elo: u32, time: u32) -> Result<(State, Vec<PFIType>), UpdateError> {
+    pub fn update(&mut self, ind_move: ((usize, usize), (usize, usize)), coord_move: &str, elo: u32, time: u32) -> Result<(State, Vec<PFIType>, Position), UpdateError> {
         self.machine.position.update(ind_move, coord_move, elo, time)
+    }
+
+    pub fn get_sf_move(&self) -> Result<SFResults, SFErrors> {
+        stockfish::get_move(&self.machine.position.to_fen(), if self.machine.position.colorw {self.welo} else {self.belo}, self.sftime)
     }
 }
 
