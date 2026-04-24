@@ -1,0 +1,9 @@
+# Rust/Cargo spezifisch
+**/target/
+**/*.rs.bk
+sf/
+
+# IDEs und OS
+.vscode/
+.DS_Store
+Thumbs.db
