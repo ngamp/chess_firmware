@@ -162,7 +162,7 @@ mod tests {
 
     #[test]
     fn it_works3() {
-        let result = get_move("7k/5ppp/6b1/7n/8/8/8/3RK3 b - - 0 1", 3000, 1000);
+        let result = get_move("7k/5ppp/6b1/8/7n/8/8/3RK3 b - - 0 1", 3000, 1000);
         assert_eq!(result.unwrap(), SFResults::Normal("h7h6".to_string()));
     }
 }
