@@ -6,7 +6,7 @@ use std::{
 };
 
 #[cfg(target_arch = "aarch64")]
-const PATH_TO_STOCKFISH: &str = "../stockfish/sfs/sf_raspi";
+const PATH_TO_STOCKFISH: &str = "../stockfish/sfs/sf_raspi"; // ffhgf
 #[cfg(target_arch = "aarch64")]
 const  WELCOME_MESSAGE: &str = "Stockfish dev-20250126-f50d52aa by the Stockfish developers (see AUTHORS file)\nreadyok\n";
 
@@ -14,7 +14,7 @@ const  WELCOME_MESSAGE: &str = "Stockfish dev-20250126-f50d52aa by the Stockfish
 #[cfg(target_arch = "x86_64")] 
 const PATH_TO_STOCKFISH: &str = "../stockfish/sfs/sf_ubuntu";
 #[cfg(target_arch = "x86_64")] 
-const  WELCOME_MESSAGE: &str = "Stockfish 17 by the Stockfish developers (see AUTHORS file)\nreadyok\n";
+const  WELCOME_MESSAGE: &str = "Stockfish 17 by the Sttest bug in stockfish libockfish developers (see AUTHORS file)\nreadyok\n";
 
 
 pub fn get_move(fen: &str, elo: u32, time: u32) -> Result<SFResults, SFErrors> {
