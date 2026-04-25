@@ -2,6 +2,9 @@
 **/target/
 **/*.rs.bk
 sf/
+sf2/
+
+
 
 # IDEs und OS
 .vscode/

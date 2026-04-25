@@ -6,7 +6,7 @@ use std::{
 };
 
 #[cfg(target_arch = "aarch64")]
-const PATH_TO_STOCKFISH: &str = "../stockfish/sfs/sf_raspi"; // ffhgf
+const PATH_TO_STOCKFISH: &str = "../stockfish/sfs/sf_raspi";
 #[cfg(target_arch = "aarch64")]
 const  WELCOME_MESSAGE: &str = "Stockfish dev-20250126-f50d52aa by the Stockfish developers (see AUTHORS file)\nreadyok\n";
 
@@ -14,7 +14,7 @@ const  WELCOME_MESSAGE: &str = "Stockfish dev-20250126-f50d52aa by the Stockfish
 #[cfg(target_arch = "x86_64")] 
 const PATH_TO_STOCKFISH: &str = "../stockfish/sfs/sf_ubuntu";
 #[cfg(target_arch = "x86_64")] 
-const  WELCOME_MESSAGE: &str = "Stockfish 17 by the Sttest bug in stockfish libockfish developers (see AUTHORS file)\nreadyok\n";
+const  WELCOME_MESSAGE: &str = "Stockfish 17 by the Stockfish developers (see AUTHORS file)\nreadyok\n";
 
 
 pub fn get_move(fen: &str, elo: u32, time: u32) -> Result<SFResults, SFErrors> {
@@ -162,7 +162,7 @@ mod tests {
 
     #[test]
     fn it_works3() {
-        let result = get_move("7k/5ppp/6b1/8/7n/8/8/3RK3 b - - 0 1", 3000, 1000);
-        assert_eq!(result.unwrap(), SFResults::Normal("h7h6".to_string()));
+        let result = get_move("1R5k/5ppp/5n2/8/8/5K2/8/8 b - - 0 1", 3000, 1000);
+        assert_eq!(result.unwrap(), SFResults::Normal("f6g8".to_string()));
     }
 }
