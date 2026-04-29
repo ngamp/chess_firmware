@@ -8,7 +8,7 @@ pub mod position {
     #[derive(Debug)]
     #[derive(Clone, Copy)]
     #[derive(Eq, Hash, PartialEq)]
-    pub enum Piece {
+    pub enum Piece {    // specifies type and color of piece
         King(bool),
         Queen(bool),
         Rook(bool),
@@ -19,36 +19,37 @@ pub mod position {
     }
 
     #[derive(Debug)]
-    pub enum DrawR {
-        Repetition,
+    pub enum DrawR {    // specifies reason for draw
+        Repetition, // unused, !todo!
         FiftyMove,
         Stalemate
     }
 
     #[derive(Debug)]
-    pub enum State {
+    pub enum State {    // specifies in which state the position is
         Normal,
         Mate(bool),
         Draw(DrawR),
-        Resign(bool)
+        Resign(bool)    // not implemented yet, !todo!
     }
 
     #[derive(Debug)]
     #[derive(Eq, Hash, PartialEq)]
-    pub enum MoveType {
+    pub enum MoveType { // specifies type of move, important for pathfinding
         Normal(Piece),
         Capturing(Piece, Piece),
         Rochade(Piece),
         EnPassant((usize, usize))
     }
 
-    fn to_int(s: &str) -> i32 {
+    fn to_int(s: &str) -> i32 { // helper function, converts string into int, returns 0 if parse failed
         match s.parse::<i32>() {
             Ok(i) => i,
             Err(_) => 0
         }
     }
 
+    // unused functions, don't have a clue what they are doing
     /*fn letter_p(s: &str) -> String {
         ["a","b","c","d","e","f","g","h"][["a","b","c","d","e","f","g","h"].iter().position(|x| *x == s).unwrap() + 1].to_owned()
     }*/
@@ -57,14 +58,14 @@ pub mod position {
         ["a","b","c","d","e","f","g","h"][["a","b","c","d","e","f","g","h"].iter().position(|x| *x == s).unwrap() - 1].to_owned()
     }*/
 
-    fn letter_to_int(s: &str) -> u32 {
-        s.chars().map(|c| c as usize - 97).collect::<Vec<usize>>()[0] as u32
+    fn letter_to_int(s: &str) -> i32 {  // helper function, converts char to int, a => 1, e => 5 ...
+        s.chars().map(|c| c as usize - 97).collect::<Vec<usize>>()[0] as i32
     }
 
 
     impl Piece {
 
-        fn from_char(chr: char) -> Option<Self> {
+        fn from_char(chr: char) -> Option<Self> {   // generator, from char, Uppercase => White, used to generate position from fen
             match chr {
                 'K' => Some(Piece::King(true)),
                 'Q' => Some(Piece::Queen(true)),
@@ -82,7 +83,7 @@ pub mod position {
             }
         }
 
-        fn piece_to_letter(&self) -> &str {
+        fn piece_to_letter(&self) -> &str { // counterpart to from_char()
             match &self {
                 Piece::King(true) => "K",
                 Piece::King(false) => "k",
@@ -100,7 +101,7 @@ pub mod position {
             }
         }
 
-        fn piece_to_color(&self) -> bool {
+        fn piece_to_color(&self) -> bool {  // return color, true => white, white if None
             match &self {
                 Piece::King(b) => *b,
                 Piece::Queen(b) => *b,
@@ -112,9 +113,10 @@ pub mod position {
             }
         }
 
-        pub fn check_field(&self, startfield: &str, endfield: &str) -> bool {
+        pub fn check_field(&self, startfield: &str, endfield: &str) -> bool {   // determines wheter the piece can theoretically move between two given squares, does not! take position into account, like pieces in way
             let (sl, sn) = startfield.split_at(1);
             let (el, en) = endfield.split_at(1);
+            let (isl, isn, iel, ien) = (letter_to_int(sl), to_int(sn), letter_to_int(el), to_int(en));
             match self {
                 Piece::None => false,
                 Piece::Rook(_) => {
@@ -125,7 +127,7 @@ pub mod position {
                     }
                 },
                 Piece::Bishop(_) => {
-                    if (self::letter_to_int(sl) + self::to_int(sn) as u32)%2 == (self::letter_to_int(el) + self::to_int(en) as u32)%2 {
+                    if (isl - isn) == (iel - ien) || (isl + isn) == (iel + ien) {
                         true
                     } else {
                         false
@@ -139,33 +141,33 @@ pub mod position {
                     }
                 },
                 Piece::Knight(_) => {
-                    if (self::letter_to_int(sl) + self::to_int(sn) as u32)%2 != (self::letter_to_int(el) + self::to_int(en) as u32)%2 && !(sl == el || sn == en) {
+                    if !Piece::Rook(true).check_field(startfield, endfield) && !Piece::Bishop(true).check_field(startfield, endfield) && (isl.abs_diff(iel) + isn.abs_diff(ien) == 3) {
                         true
                     } else {
                         false
                     }
                 },
                 Piece::King(_) => {
-                    match ((self::letter_to_int(sl) as i64 - self::letter_to_int(el) as i64), (self::to_int(sn) as i64 - self::to_int(en) as i64)) {
-                        (-1..2, -1..2) => true,
-                        _ => false
+                    if (iel.abs_diff(isl) < 2) && (ien.abs_diff(isn) < 2) {
+                        true
+                    } else {
+                        false
                     }
                 },
                 Piece::Pawn(true) => {
-                    match ((self::letter_to_int(sl) as i64 - self::letter_to_int(el) as i64), (self::to_int(en) as i64 - self::to_int(sn) as i64)) {
-                        (0, 1..3) => true,
-                        (-1..2, 1) => true, 
-                        _ => false
+                    if ((ien-isn == 1) && (isl.abs_diff(iel) < 2)) || (ien == 4 && isn == 2 && isl.abs_diff(iel) == 0) {
+                        true
+                    } else {
+                        false
                     }
                 },
                 Piece::Pawn(false) => {
-                    match ((self::letter_to_int(sl) as i64 - self::letter_to_int(el) as i64), (self::to_int(sn) as i64 - self::to_int(en) as i64)) {
-                        (0, 1..3) => true,
-                        (-1..2, 1) => true, 
-                        _ => false
+                    if ((isn-ien == 1) && (isl.abs_diff(iel) < 2)) || (ien == 5 && isn == 7 && isl.abs_diff(iel) == 0) {
+                        true
+                    } else {
+                        false
                     }
                 }
-
             }
 
         }
@@ -173,7 +175,7 @@ pub mod position {
     }
 
     #[derive(Debug)]
-    pub enum MoveError {
+    pub enum MoveError {    // possible conditions preventing a move
         FenParse(ParseIntError),
         NoFigurStart,
         OwnFigurEnd,
@@ -188,14 +190,14 @@ pub mod position {
 
     #[derive(Debug)]
     #[derive(Clone, Copy)]
-    pub enum PFIType {
+    pub enum PFIType {  // helper struct, to give needed information to pathfinding algorithm
         NMove((usize, usize), (usize, usize)),
         Rochade(Piece, [(usize, usize); 4]),
         Custom((usize, usize), (usize, usize))
     }
 
     #[derive(Debug)]
-    pub enum UpdateError {
+    pub enum UpdateError {  // possible errors in update() function
         ImpossibleMove(MoveError),
         EnpassantMissing,
         CleaningError(CleaningError),
@@ -204,30 +206,30 @@ pub mod position {
     }
 
     #[derive(Debug)]
-    pub enum CleaningError {
+    pub enum CleaningError { // errors when moving piece off the board
         KingBeforeQueen,
         ImpossiblePosition
     }
 
     #[derive(Debug)]
-    pub enum PFError {
+    pub enum PFError {  // Errors in pathfinding algorithm
         MoveDoesNotFitType(PFIType),
         Rochade(u32),
         Stuck
     }
     #[derive(Debug)]
     #[derive(Clone)]
-    pub struct Position {
+    pub struct Position {   // stores all essential informations about current position of the board
         pub colorw: bool,
         pub fields: [[Piece;14];8],
         pub moves: u32,
         pub en_passant: String,
         pub rochade: [Piece;4],
-        pub since_pawn_major: u32
+        pub since_pawn_major: u32   // draw logic not implemented yet, !todo!
     }    
 
     impl Position {
-        pub fn new_reset() -> Self {
+        pub fn new_reset() -> Self {    // generator, resets position to starting position
             Position {
                 colorw: true,
                 fields: [[Piece::None,Piece::None,Piece::None,Piece::Rook(false),Piece::Knight(false),Piece::Bishop(false),Piece::Queen(false),Piece::King(false),Piece::Bishop(false),Piece::Knight(false),Piece::Rook(false),Piece::None,Piece::None,Piece::Queen(false)],
@@ -245,13 +247,13 @@ pub mod position {
             }
         }
 
-        pub fn print_out(&self) {
+        pub fn print_out(&self) {   // prints piece-positions
             for row in self.fields {
                 println!("{:?}", row);
             }
         }
 
-        pub fn to_fen(&self) -> String {
+        pub fn to_fen(&self) -> String { // converts to fen, for sf
             let mut res = String::new();
     
             //get piece position
@@ -291,7 +293,7 @@ pub mod position {
                 res.push_str("b ");
             }
     
-            //rochade-rights
+            // rochade-rights
             let mut rochade_res = String::new();
             for piece in self.rochade {
                 rochade_res.push_str(&piece.piece_to_letter());
@@ -301,20 +303,19 @@ pub mod position {
             }
             res.push_str(&rochade_res);
     
-            //en_passant?
+            // en_passant?
             res.push_str(&format!(" {}", self.en_passant));
     
-            //moves (50-moves-rule)
+            // moves (50-moves-rule)
             res.push_str(&format!(" {}", self.since_pawn_major / 2));
     
-            //movenumber
+            // movenumber
             res.push_str(&format!(" {}", (self.moves / 2) + 1));
-    
     
             res
         }
 
-        pub fn from_fen(fen: &str) -> Result<Self, MoveError> {
+        pub fn from_fen(fen: &str) -> Result<Self, MoveError> { // generator, converts fen to position
             let fen: Vec<&str> = fen.split_ascii_whitespace().collect();
             let colorw = match fen[1] {
                 "w" => true,
@@ -401,7 +402,7 @@ pub mod position {
 
         }
 
-        pub fn add_rest(&mut self, pce: Piece) -> Result<(usize, usize), CleaningError> {
+        pub fn add_rest(&mut self, pce: Piece) -> Result<(usize, usize), CleaningError> {   // adds captured piece to sidebars
             match pce {
                 Piece::Queen(true) => {
                     if self.field_is_empty((7, 0)) {
@@ -515,7 +516,7 @@ pub mod position {
             }
         }
 
-        pub fn field_is_empty(&self, field: (usize, usize)) -> bool {
+        pub fn field_is_empty(&self, field: (usize, usize)) -> bool {   // checks if field contains a piece
             if self.fields[field.0][field.1] == Piece::None {
                 true
             } else {
@@ -575,7 +576,7 @@ pub mod position {
             //update fields (and since_pawn_major)
             let mut moves: Vec<PFIType> = Vec::new();
             let ((sfr, sfs), (efr, efs)) = ind_move;
-            match mt {
+            match mt {  // moving piece, 
                 MoveType::Normal(p) => {
                     self.fields[efr][efs] = p;
                     self.fields[sfr][sfs] = Piece::None;
@@ -655,7 +656,7 @@ pub mod position {
                     moves.push(PFIType::Rochade(p, [ks, ke, rs, re]));
                 }
             };
-            let state = match get_move(&self.to_fen(), elo, time) {
+            let mut state = match get_move(&self.to_fen(), elo, time) {
                 Err(rr) => return Err(UpdateError::SFError(rr)),
                 Ok(s) => {
                     match s {
@@ -665,7 +666,10 @@ pub mod position {
                     }
                 }
             };
-            Ok((state, moves, cppos))
+            if self.since_pawn_major > 49 {
+                state = State::Draw(DrawR::FiftyMove);
+            };
+            Ok((state, moves, cppos))   // state of the game after the move, moves for pieces on the board, for pathfinding, position before move
         }
 
         pub fn validate_move_possibility(&self, cmove: &str) -> Result<MoveType, MoveError> {
@@ -739,12 +743,12 @@ pub mod position {
             }            
         }
 
-        pub fn coordinates_to_piece(&self, coord: &str) -> Result<Option<Piece>, MoveError> {
+        pub fn coordinates_to_piece(&self, coord: &str) -> Result<Option<Piece>, MoveError> { // returns Piece from given square coordinates
             let res = coordinates_to_index(coord)?;
             Ok(self.index_to_piece(res))
         }
 
-        pub fn index_to_piece(&self, ind: (usize, usize)) -> Option<Piece> {
+        pub fn index_to_piece(&self, ind: (usize, usize)) -> Option<Piece> {    // returns Piece from given square index
             if self.field_is_empty(ind) {
                 None
             } else {
@@ -752,6 +756,7 @@ pub mod position {
             }
         }
 
+        // calculates best path for pieces to move, moves pieces out of the way if needed
         pub fn pathfinding(&mut self, vmove: &Vec<PFIType>, pos: &mut PosNow) -> Result<MotorInstructions, PFError> {
             println!("pos start pf:");
             println!("{:?}", pos);
@@ -798,7 +803,7 @@ pub mod position {
 
     #[derive(Debug)]
     #[derive(Clone)]
-    pub struct OneFML(pub Vec<FieldUsize>);
+    pub struct OneFML(pub Vec<FieldUsize>); // list of available squares for the pice to move, if complex
 
     impl OneFML {
         pub fn new() -> Self {
@@ -813,7 +818,7 @@ pub mod position {
             self.0.pop().unwrap()
         }
 
-        pub fn to_mi(self, pos: &mut PosNow) -> MotorInstructions {
+        pub fn to_mi(self, pos: &mut PosNow) -> MotorInstructions { // convert itself into single commands for the motors
             println!("to_mi:");
             println!("{:?},", pos);
             let movl = self.0;
@@ -842,7 +847,7 @@ pub mod position {
             res
         }
 
-        pub fn ease(self) -> Self {
+        pub fn ease(self) -> Self { // detects loops in the movement and cuts them out
             let mut mvl = self.0;
             let mut j = mvl.len() - 1;
             let mut i = 0;
@@ -867,12 +872,12 @@ pub mod position {
             Self(mvl)
         }
 
-        pub fn append(mut self, mut other: Self) -> Self {
+        pub fn append(mut self, mut other: Self) -> Self {  // connect to OneFML
             self.0.append(&mut other.0);
             self
         }
 
-        pub fn pf_hf(mut sf: FieldUsize, ef: FieldUsize) -> Self {
+        pub fn pf_hf(mut sf: FieldUsize, ef: FieldUsize) -> Self {  // finds obv path, moves horizontal first
             let mut res = Self::new();
             res.add(sf);
             let xdir = ef.1 > sf.1;
@@ -888,7 +893,7 @@ pub mod position {
             res
         }
 
-        pub fn pf_vf(mut sf: FieldUsize, ef: FieldUsize) -> Self {
+        pub fn pf_vf(mut sf: FieldUsize, ef: FieldUsize) -> Self {  // finds obv path, moves vertical first
             let mut res = Self::new();
             res.add(sf);
             let xdir = ef.1 > sf.1;
@@ -905,7 +910,7 @@ pub mod position {
         }
     }
 
-    pub fn pathfinding_custom(sf: FieldUsize, ef: FieldUsize, bl: &mut BitList, pos: &mut PosNow) -> Result<MotorInstructions, PFError> {
+    pub fn pathfinding_custom(sf: FieldUsize, ef: FieldUsize, bl: &mut BitList, pos: &mut PosNow) -> Result<MotorInstructions, PFError> {   // path finding for complex situations, detects wheter pieces have to get moved out of way
         if bl.count_area(sf, ef) == 0 {
             return Ok(MotorInstructions::field_to_field(Field::from_field_usize(sf), Field::from_field_usize(ef), Speeds::NMovespeed, true, pos))
         };
@@ -928,7 +933,7 @@ pub mod position {
         }
     }
 
-    pub fn pf_stuck(sf: FieldUsize, ef: FieldUsize, bl: &mut BitList, pos: &mut PosNow) -> Result<MotorInstructions, PFError> {
+    pub fn pf_stuck(sf: FieldUsize, ef: FieldUsize, bl: &mut BitList, pos: &mut PosNow) -> Result<MotorInstructions, PFError> { // pathfinding if piece is stuck, very complex, but works somehow
         let mut res  = MotorInstructions::new();
         let mut moved_pieces = Vec::new();
         bl.update(vec![sf.to_tuple(), ef.to_tuple()], vec![], vec![]);
@@ -1012,7 +1017,7 @@ pub mod position {
         Ok(res)
     }
 
-    pub fn pf_custom_helper(ogsf: FieldUsize, sf: FieldUsize, ef: FieldUsize, bl: &mut BitList, mut movlist: OneFML) -> Result<OneFML, PFError> {
+    pub fn pf_custom_helper(ogsf: FieldUsize, sf: FieldUsize, ef: FieldUsize, bl: &mut BitList, mut movlist: OneFML) -> Result<OneFML, PFError> {   // recursive programm to find next square
         //bl.print_out();
         //println!("{:?}", movlist);
         if sf == ef {
@@ -1042,7 +1047,7 @@ pub mod position {
         Err(PFError::Stuck)
     }
 
-    pub fn pathfinding_rochade(p: Piece, coords: [(usize, usize); 4], bl: &mut BitList, pos: &mut PosNow) -> Result<MotorInstructions, PFError> {
+    pub fn pathfinding_rochade(p: Piece, coords: [(usize, usize); 4], bl: &mut BitList, pos: &mut PosNow) -> Result<MotorInstructions, PFError> {   // construct MI for rochade move
         let col = p.piece_to_color();
         let working_area = if col {
             BitList(bl.0[6..8].to_vec())
@@ -1110,7 +1115,7 @@ pub mod position {
         res
     }
 
-    pub fn coordinates_to_index(coordinate: &str) -> Result<(usize, usize), MoveError> {
+    pub fn coordinates_to_index(coordinate: &str) -> Result<(usize, usize), MoveError> {    // converts square description
         let (letter, number) = coordinate.split_at(1);
         let mut num: usize = match number.parse() {
             Ok(n) => n,
@@ -1129,7 +1134,7 @@ pub mod position {
         Ok((num, lett))
     }
 
-    pub fn ctim(coordinate: &str) -> Result<((usize, usize), (usize, usize)), MoveError> {
+    pub fn ctim(coordinate: &str) -> Result<((usize, usize), (usize, usize)), MoveError> {  // performs coordinates_to_index for whole move
         let split = coordinate.split_at(2);
         let first = coordinates_to_index(split.0)?;
         let second = coordinates_to_index(split.1)?;
@@ -1137,15 +1142,15 @@ pub mod position {
     }
 
     #[derive(Debug)]
-    pub struct BitList(pub Vec<[(bool, u8); 14]>);
+    pub struct BitList(pub Vec<[(bool, u8); 14]>);  // helper struct for advanced pathfinding, contains bool for piece and int for number of empty neighbor squares
 
     impl BitList {
 
-        pub fn new() -> Self {
+        pub fn new() -> Self {  // constructs empty board
             Self(vec![[(false, 8); 14]; 8])
         }
 
-        pub fn from_pos(position: &Position) -> Self {
+        pub fn from_pos(position: &Position) -> Self { // generator, from position
             let mut res = [[(false, 8); 14]; 8].to_vec();
             for (rownum, row) in position.fields.iter().enumerate() {
                 for (num, field) in row.iter().enumerate() {
@@ -1173,7 +1178,7 @@ pub mod position {
             }
         }
 
-        pub fn update(&mut self, to_remove: Vec<(usize, usize)>, to_add: Vec<(usize, usize)>, to_count: Vec<(usize, usize)>) {
+        pub fn update(&mut self, to_remove: Vec<(usize, usize)>, to_add: Vec<(usize, usize)>, to_count: Vec<(usize, usize)>) {  // adjusts field content
             for (y, x) in to_remove {
                 if y < 8 && x < 14 {
                     self.0[y][x].0 = false
@@ -1208,7 +1213,7 @@ pub mod position {
             self.check_coords(f.to_tuple())
         }
 
-        pub fn count_area(&self, f1: FieldUsize, f2: FieldUsize) -> usize {
+        pub fn count_area(&self, f1: FieldUsize, f2: FieldUsize) -> usize { // counts empty squares in a give area
             let mut res = 0;
             let (r1, r2) = ord(f1.0, f2.0);
             let rows = self.0[r1..r2+1].to_vec();
@@ -1223,7 +1228,7 @@ pub mod position {
             res
         }
 
-        pub fn check_coords_num(&self, (y, x): (usize, usize)) -> u8 {
+        pub fn check_coords_num(&self, (y, x): (usize, usize)) -> u8 {  // returns number of free neighbors for given square
             if y < 8 && x < 14 {
                 self.0[y][x].1
             } else {
@@ -1318,5 +1323,23 @@ mod tests {
     fn it_works8() {
         let result = BitList::from_pos(&get_position()).count_area(FieldUsize(3, 7), FieldUsize(6, 4));
         assert_eq!(result, 6);
+    }
+
+    #[test]
+    fn it_works9() {
+        let result = &Piece::Bishop(true).check_field("d4", "h6");
+        assert_eq!(*result, false);
+    }
+
+    #[test]
+    fn it_works10() {
+        let result = &Piece::Knight(true).check_field("d4", "b5");
+        assert_eq!(*result, true);
+    }
+
+    #[test]
+    fn it_works11() {
+        let result = &Piece::Knight(true).check_field("a1", "b4");
+        assert_eq!(*result, false);
     }
 }

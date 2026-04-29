@@ -9,7 +9,7 @@ pub enum MachineErrors {
     Motor(MtrErrors)
 }
 #[derive(Debug)]
-pub struct Machine {
+pub struct Machine {    // contains and manages all components, keeps track of position
     pub xmtr: Mtr,
     pub ymtr: Mtr,
     pub magnet: Magnet,
@@ -23,7 +23,7 @@ impl Machine {
         Self { xmtr: Mtr::dummy(), ymtr: Mtr::dummy(), magnet: Magnet::dummy(), position: Position::new_reset(), pos_mtr: PosNow::new() }
     }
 
-    pub fn new(xmtr: (bool, u8, u8, u8), ymtr: (bool, u8, u8, u8), magnet: u8) -> Result<Self, MachineErrors> {
+    pub fn new(xmtr: (bool, u8, u8, u8), ymtr: (bool, u8, u8, u8), magnet: u8) -> Result<Self, MachineErrors> { // generator
         let xmtr = match Mtr::new(xmtr.0, xmtr.1, xmtr.2,  xmtr.3) {
             Ok(xm) => xm,
             Err(rr) => return Err(MachineErrors::Motor(rr))
@@ -39,7 +39,7 @@ impl Machine {
         Ok(Self { xmtr, ymtr, magnet: mgnt, position: Position::new_reset(), pos_mtr: PosNow::new() })
     }
 
-    pub fn set_position(&mut self, fen: &str) -> Result<(), MachineErrors>{
+    pub fn set_position(&mut self, fen: &str) -> Result<(), MachineErrors>{ // sets position to a given 
         self.position = match Position::from_fen(fen) {
             Ok(res) => res,
             Err(rr) => return Err(MachineErrors::Position(rr))
@@ -199,8 +199,4 @@ impl Game {
     pub fn get_sf_move(&self) -> Result<SFResults, SFErrors> {
         stockfish::get_move(&self.machine.position.to_fen(), if self.machine.position.colorw {self.welo} else {self.belo}, self.sftime)
     }
-}
-
-pub fn mainf() {
-
 }

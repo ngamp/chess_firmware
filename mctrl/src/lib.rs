@@ -6,6 +6,7 @@ pub const OFFSETRATIO: f32 = 1.0/3.0;
 pub const OFFSETSPEED: f32 = 1.5;
 pub const NOFIGURESPEED: f32 = 2.5;
 pub const TRANSPORTSPEED: f32 = 2.0;
+pub const RPS_DEL_FACT: f32 = 2500.0;
 
 pub mod motor {
 
@@ -14,12 +15,12 @@ pub mod motor {
 
     use rppal::gpio::{Error, Gpio, OutputPin};
 
-    use crate::{delay, HOMINGSPEED, MMF, MMR, NMOVESPEED, NOFIGURESPEED, OFFSETRATIO, OFFSETSPEED, TRANSPORTSPEED};
+    use crate::{delay, HOMINGSPEED, MMF, MMR, NMOVESPEED, NOFIGURESPEED, OFFSETRATIO, OFFSETSPEED, TRANSPORTSPEED, RPS_DEL_FACT};
 
     #[derive(Debug)]
     #[derive(Clone, Copy)]
     #[derive(PartialEq, Eq, PartialOrd, Ord)]
-    pub enum Speeds {
+    pub enum Speeds {   // enum wrapper for speed constants
         Homingspeed,
         NMovespeed,
         Offsetspeed,
@@ -41,14 +42,14 @@ pub mod motor {
     }
     
     #[derive(Debug)]
-    pub enum MtrErrors {
+    pub enum MtrErrors {    // possible errors when using motors
         GpioCreationError,
         PinGettingError(Error),
         MotorDisabled
     }
 
     #[derive(Debug)]
-    pub struct Mtr {
+    pub struct Mtr {    // substantial data for single motor
         pub xaxis: bool,
         pub dirpin: Option<OutputPin>,
         pub steppin: Option<OutputPin>,
@@ -57,11 +58,11 @@ pub mod motor {
 
 
     impl Mtr {
-        pub fn dummy() -> Self {
+        pub fn dummy() -> Self {    // returns a virtual motor for further init, unused
             Mtr { xaxis: true, dirpin: None, steppin: None, enb_pin: None }
         }
         
-        pub fn new(xaxis: bool, dp: u8, sp: u8, enbp: u8) -> Result<Self, MtrErrors>  {
+        pub fn new(xaxis: bool, dp: u8, sp: u8, enbp: u8) -> Result<Self, MtrErrors>  { // generator from given value
             let gp = match Gpio::new() {
                 Ok(gp) => gp,
                 Err(_) => return Err(MtrErrors::GpioCreationError)
@@ -99,7 +100,7 @@ pub mod motor {
             self.enb_pin.as_ref().unwrap().is_set_high()
         }
 
-        pub fn move_steps(&mut self, steps: u32, direction: bool, speed: f32) {
+        pub fn move_steps(&mut self, steps: u32, direction: bool, speed: f32) { // move given amount of steps with given speed
             let enbpin = self.enb_pin.as_mut().unwrap();
             if enbpin.is_set_low() {
                 enbpin.set_high();
@@ -122,21 +123,21 @@ pub mod motor {
     }
 
 
-    pub fn rps_to_del(rps: f32) -> u32 {
-        (5000.0/rps) as u32 / 2
+    pub fn rps_to_del(rps: f32) -> u32 {    // converts given speed 
+        (RPS_DEL_FACT/rps) as u32
     }
 
     #[derive(Debug)]
-    pub struct Magnet {
+    pub struct Magnet { // magnet object
         pub pin: Option<OutputPin>,
     }
 
     impl Magnet {
-        pub fn dummy() -> Self {
+        pub fn dummy() -> Self {    // unused
             Self { pin: None }
         }
 
-        pub fn new(pinnum: u8) -> Result<Self, MtrErrors> {
+        pub fn new(pinnum: u8) -> Result<Self, MtrErrors> { // init from pin
             let gp = match Gpio::new() {
                 Ok(gp) => gp,
                 Err(_) => return Err(MtrErrors::GpioCreationError)
@@ -165,7 +166,7 @@ pub mod motor {
 
     #[derive(Debug)]
     #[derive(Clone, Copy)]
-    pub struct PosNow {
+    pub struct PosNow { // keeps track of the current motor position
         xmtr: i32,
         ymtr: i32
     }
@@ -175,11 +176,11 @@ pub mod motor {
             PosNow { xmtr: 0, ymtr: 0}
         }
 
-        pub fn new_from_field(f: Field) -> Self {
+        pub fn new_from_field(f: Field) -> Self {   // generator, from field
             PosNow { xmtr: fields_to_steps_signed(f.0), ymtr: fields_to_steps_signed(f.1) }
         }
 
-        pub fn update(&mut self, xaxis: bool, steps: u32, dir: bool) {
+        pub fn update(&mut self, xaxis: bool, steps: u32, dir: bool) {  // takes single dimension steps
             if xaxis {
                 if dir {
                     self.xmtr += steps as i32;
@@ -195,7 +196,7 @@ pub mod motor {
             }
         }
 
-        pub fn sfh_to_field(&self) -> Field {
+        pub fn sfh_to_field(&self) -> Field {   // converts position into field
             let mut x = 0.0;
             let mut y = 0.0;
             if self.xmtr != 0 {
@@ -217,7 +218,7 @@ pub mod motor {
         Diagonal(MotorMove)
     }
 
-    impl MotorMoveType {
+    impl MotorMoveType {    // unpacks MotorMove
         pub fn get_motormove(&mut self) -> &mut MotorMove {
             match self {
                 Self::StraightX(a) => a,
@@ -230,7 +231,7 @@ pub mod motor {
     impl Add for MotorMoveType {
         type Output = Self;
 
-        fn add(self, mut rhs: Self) -> Self::Output {
+        fn add(self, mut rhs: Self) -> Self::Output {   // does two moves into on command, !! only works for same dimension AND same direction
             match self {
                 Self::StraightX(a) => Self::StraightX(a + *rhs.get_motormove()),
                 Self::StraightY(a) => Self::StraightY(a + *rhs.get_motormove()),
@@ -241,7 +242,7 @@ pub mod motor {
 
     #[derive(Debug)]
     #[derive(Clone, Copy)]
-    pub struct MotorMove {
+    pub struct MotorMove {  // contains all information about a single motor movement element
         pub dir: bool,
         pub len: u32,
         pub speed: Speeds,
@@ -260,7 +261,7 @@ pub mod motor {
         }
     }
 
-    impl PartialEq for MotorMove {
+    impl PartialEq for MotorMove {  // checks if moves are combatible
         fn eq(&self, other: &Self) -> bool {
             if self.dir == other.dir && self.dir2 == other.dir2 && self.speed == other.speed && self.magnet == other.magnet {
                 true
@@ -282,11 +283,11 @@ pub mod motor {
 
     #[derive(Debug)]
     #[derive(Clone)]
-    pub struct MotorInstructions {
+    pub struct MotorInstructions {  // contains full set of MMTs, represents a full move sequence
         pub instructions: Vec<MotorMoveType>
     }
 
-    impl MotorInstructions {
+    impl MotorInstructions {    // hard to determine wheter the move should be included to posnow
         pub fn new() -> Self {
             MotorInstructions { instructions: Vec::new() }
         }
@@ -300,7 +301,7 @@ pub mod motor {
             self.instructions.append(&mut mi.instructions);
         }
 
-        pub fn reverse(self) -> Self {
+        pub fn reverse(self) -> Self {  // reverses a given sequence of MMTs
             let mut res = self.instructions.clone();
             for mi in &mut res {
                 let reference = mi.get_motormove();
@@ -310,7 +311,7 @@ pub mod motor {
             Self { instructions: res }
         }
 
-        pub fn from_vfield(field: Field, speed: Speeds, magnet: bool) -> Self {
+        pub fn from_vfield(field: Field, speed: Speeds, magnet: bool) -> Self { // moves to given delta(field), straight, should not be used with magnet on if complexer path
             let mut res = Vec::new();
             let xlen = fields_to_steps_signed(field.0) as i32;
             let ylen = fields_to_steps_signed(field.1) as i32;
@@ -323,13 +324,13 @@ pub mod motor {
             Self { instructions:  res}
         }
 
-        pub fn to_home(pos: &mut PosNow) -> Self {
+        pub fn to_home(pos: &mut PosNow) -> Self {  // moves to home position
             let x = -pos.xmtr;
             let y = -pos.ymtr;
             Self { instructions: vec![MotorMoveType::StraightX(steps_to_motormove(x, Speeds::Homingspeed, false)), MotorMoveType::StraightY(steps_to_motormove(y, Speeds::Homingspeed, false))] }
         }
 
-        pub fn field_to_field(f1: Field, f2: Field, speed: Speeds, magnet: bool, pos: &mut PosNow) -> Self {
+        pub fn field_to_field(f1: Field, f2: Field, speed: Speeds, magnet: bool, pos: &mut PosNow) -> Self {    // from one abs field to another
             let f = f2-f1;
             let mut res = MotorInstructions::new();
             if pos.sfh_to_field() != f1 {
@@ -371,7 +372,7 @@ pub mod motor {
             }
         }
 
-        pub fn write_to_pos(self, pos: &mut PosNow) -> Self {
+        pub fn write_to_pos(self, pos: &mut PosNow) -> Self {   // writes given sequence to posnow
             println!("pos before wr: {:?}", pos);
             println!("write_to_pos: {:?}", self);
             let instructions = self.instructions.clone();
@@ -389,7 +390,7 @@ pub mod motor {
             self
         }
 
-        pub fn ease(&mut self) {
+        pub fn ease(&mut self) {    // combines moves if combatible
             let mut i = 0;
             while i+1 < self.instructions.len() {
                 if self.instructions[i] == self.instructions[i+1] {
@@ -402,7 +403,7 @@ pub mod motor {
         }
     }
 
-    pub struct OffSet {
+    pub struct OffSet { // contains data about pieces which were moved from square center for pathfinding, has to be reversed after, seems like it isnt used entirely??
         offset: (Option<bool>, Option<bool>),
         field: Field
     }
@@ -412,7 +413,7 @@ pub mod motor {
             Self { offset: (x, y), field }
         }
 
-        pub fn offset(&self, pos: &mut PosNow) -> MotorInstructions {
+        pub fn offset(&self, pos: &mut PosNow) -> MotorInstructions {   // generates MIs to perform offset
             let mut res = Vec::new();
             if pos.sfh_to_field() != self.field {
                 res.append(&mut MotorInstructions::field_to_field(pos.sfh_to_field(), self.field, Speeds::NoFigurespeed, false, pos).instructions)
@@ -435,7 +436,7 @@ pub mod motor {
             MotorInstructions { instructions: res}.write_to_pos(pos)
         }
 
-        pub fn resolve(self, pos: &mut PosNow) -> MotorInstructions {
+        pub fn resolve(self, pos: &mut PosNow) -> MotorInstructions {   // resolves offset
             let mut res = Vec::new();
             if pos.sfh_to_field() != self.field {
                 res.append(&mut MotorInstructions::field_to_field(pos.sfh_to_field(), self.field, Speeds::NoFigurespeed, false, pos).instructions)

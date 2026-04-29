@@ -41,35 +41,35 @@ fn main() {
     let mut magnet = motor::Magnet::new(26).unwrap();
     magnet.on();
     delay::delayms(7000);
-    magnet.off();
-    let mut a = position::Position::from_fen(
+    magnet.off();*/
+    let mut a = position::position::Position::from_fen(
         "r3k2r/pp2ppbp/4b3/2p5/4q1P1/2P1B2P/PP2P3/RN1QK1NR w KQkq - 0 13",
     ).unwrap();
     for i in a.fields {
         println!("{:?}", i)
     }
     println!("h");
-    let res = a.update(((5, 7), (3, 5)), "e3c5");
+    let res = a.update(((5, 7), (3, 5)), "e3c5", 2000, 500);
     for i in a.fields {
         println!("{:?}", i)
     };
     println!("{:?}", res);
-    let res = a.update(((0, 7), (0, 9)), "e8g8").unwrap();
+    let res = a.update(((0, 7), (0, 9)), "e8g8", 2000, 500).unwrap();
     for i in a.fields {
         println!("{:?}", i)
     };
     println!("{:?}", res);
-    let res = a.update(((4, 9), (3, 9)), "g4g5").unwrap();
+    let res = a.update(((4, 9), (3, 9)), "g4g5", 2000, 500).unwrap();
     for i in a.fields {
         println!("{:?}", i)
     };
     println!("{:?}", res);
-    let res = a.update(((1, 10), (3, 10)), "h7h5").unwrap();
+    let res = a.update(((1, 10), (3, 10)), "h7h5", 2000, 500).unwrap();
     for i in a.fields {
         println!("{:?}", i)
     };
     println!("{:?}", res);
-    let res = a.update(((3, 9), (2, 10)), "g5h6").unwrap();
+    let res = a.update(((3, 9), (2, 10)), "g5h6", 2000, 500).unwrap();
     for i in a.fields {
         println!("{:?}", i)
     };
@@ -126,9 +126,9 @@ fn main() {
     test_vec.drain(2..5);
     println!("{:?}", test_vec);
 
-    println!("{:?}", get_move(&Position::from_fen("8/8/8/4k3/8/7B/2K5/8 w - - 0 1").unwrap().to_fen(), 1700, 1000));*/
+    println!("{:?}", get_move(&Position::from_fen("8/8/8/4k3/8/7B/2K5/8 w - - 0 1").unwrap().to_fen(), 1700, 1000));
     
-    let mut m1 = motor::Mtr::new(true, 16, 20, 21).unwrap();
+    /*let mut m1 = motor::Mtr::new(true, 16, 20, 21).unwrap();
     m1.enable_motor();
     m1.move_steps(1600, true, 6.0);
     delay::delayms(200);
@@ -137,7 +137,7 @@ fn main() {
     m1.move_steps(800, true, 2.0);
     delay::delayms(200);
     m1.move_steps(2000, false, 4.5);
-    m1.disable_motor();
+    m1.disable_motor();*/
 
     let mut mmmm = Position::from_fen("rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 1").unwrap();
     println!("{:?}", mmmm);
@@ -146,6 +146,8 @@ fn main() {
     println!("PosNow: {:?}", posnow);
     mmmm.pathfinding(&vmove, &mut posnow).unwrap().print_out();
 
-    //pathfinding_custom(FieldUsize::from_tuple((3 as usize, 6 as usize)), FieldUsize::from_tuple((7 as usize, 13 as usize)), &mut BitList::from_pos(&Position::from_fen("rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 1").unwrap()), &mut PosNow::new()).unwrap().print_out();
-    //BitList::from_pos(&Position::from_fen("rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 1").unwrap()).print_out();
+    pathfinding_custom(FieldUsize::from_tuple((3 as usize, 6 as usize)), FieldUsize::from_tuple((7 as usize, 13 as usize)), &mut BitList::from_pos(&Position::from_fen("rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 1").unwrap()), &mut PosNow::new()).unwrap().print_out();
+    println!("hererere");
+    BitList::from_pos(&Position::from_fen("rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 1").unwrap()).print_out();
+    println!("finished");
 }

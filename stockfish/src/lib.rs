@@ -5,6 +5,8 @@ use std::{
     time::Duration,
 };
 
+// specifies which sf binary to use depending on architecture
+
 #[cfg(target_arch = "aarch64")]
 const PATH_TO_STOCKFISH: &str = "../stockfish/sfs/sf_raspi";
 #[cfg(target_arch = "aarch64")]
@@ -17,11 +19,13 @@ const PATH_TO_STOCKFISH: &str = "../stockfish/sfs/sf_ubuntu";
 const  WELCOME_MESSAGE: &str = "Stockfish dev-20260426-1a882efc by the Stockfish developers (see AUTHORS file)\nreadyok\n";
 
 
-pub fn get_move(fen: &str, elo: u32, time: u32) -> Result<SFResults, SFErrors> {
-    let mut sf = match new_sf() {
+pub fn get_move(fen: &str, elo: u32, time: u32) -> Result<SFResults, SFErrors> {    // gives back error or move, given the position and sf parameters
+    let mut sf = match new_sf() { // creates sf child
         Ok(sf) => sf,
         Err(rr) => return Err(rr),
     };
+
+    // creates io handles of the sf child
     let mut sfin = match sf.stdin.take() {
         Some(sfin) => sfin,
         None => return Err(SFErrors::SFInCreation),
@@ -30,6 +34,8 @@ pub fn get_move(fen: &str, elo: u32, time: u32) -> Result<SFResults, SFErrors> {
         Some(sfout) => sfout,
         None => return Err(SFErrors::SFOutCreation),
     };
+
+    // creating buffer for op, sending test-sequence, matching test-op to exspected value
     let mut output_buffer: [u8; WELCOME_MESSAGE.len()] = [0; WELCOME_MESSAGE.len()];
     match sfin.write_all("isready\n".as_bytes()) {
         Ok(_) => {}
@@ -46,6 +52,8 @@ pub fn get_move(fen: &str, elo: u32, time: u32) -> Result<SFResults, SFErrors> {
         },
         Err(rr) => return Err(SFErrors::SFOutReadingParsing(rr)),
     };
+
+    // giving sf command to determine next move, waiting for answer and ending sf
     match sfin.write_all(&format!("position fen {}\nsetoption name UCI_Elo value {}\nsetoption name UCI_LimitStrength value true \ngo movetime {}\n", fen, elo, time).as_bytes()) {
         Ok(_) => {}
         Err(rr) => return Err(SFErrors::SFInWriting(rr)),
@@ -55,6 +63,8 @@ pub fn get_move(fen: &str, elo: u32, time: u32) -> Result<SFResults, SFErrors> {
         Ok(_) => {}
         Err(rr) => return Err(SFErrors::SFInWriting(rr)),
     };
+
+    // reading result, parse to string, extracting move
     let mut res_buffer: Vec<u8> = Vec::new();
     match sfout.read_to_end(&mut res_buffer) {
         Ok(_) => {}
@@ -75,7 +85,8 @@ pub fn get_move(fen: &str, elo: u32, time: u32) -> Result<SFResults, SFErrors> {
         }
         None => return Err(SFErrors::SFProcessing),
     };
-    //println!("{:?}", n);
+
+    // determines type of result and returning it
     match n {
         "bestmove (none)" => {
             match res_list[res_list.len() - 2].split(" ").collect::<Vec<&str>>().iter().nth_back(1) {
@@ -112,27 +123,26 @@ pub fn get_move(fen: &str, elo: u32, time: u32) -> Result<SFResults, SFErrors> {
 }
 
 #[derive(Debug)]
-pub enum SFErrors {
-    CreationError(Error),
-    SFInCreation,
-    SFOutCreation,
-    SFTesting,
-    SFInWriting(Error),
-    SFOutReading(Error),
-    SFOutReadingParsing(FromUtf8Error),
-    SFProcessing,
-    Other,
+pub enum SFErrors { // Errortypes related to stockfish sf
+    CreationError(Error),   // creation of sf child failed
+    SFInCreation,   // creation of ip handle failed
+    SFOutCreation,  // creation of op handle failed
+    SFTesting,  // test sequence resulted in unforseen op
+    SFInWriting(Error), // writing in sf ip failed
+    SFOutReading(Error),    // writing in sf op failed
+    SFOutReadingParsing(FromUtf8Error), // failed to parse op to string
+    SFProcessing,   // result of sf can't be processed as exspected
 }
 
 #[derive(Debug)]
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
-pub enum SFResults {
+pub enum SFResults {    // all possible types of sf outputs
     Normal(String),
     Stalemate,
     Mate
 }
 
-fn new_sf() -> Result<Child, SFErrors> {
+fn new_sf() -> Result<Child, SFErrors> {    // creates new sf child process which is used by get_move()
     match Command::new(PATH_TO_STOCKFISH)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -143,7 +153,7 @@ fn new_sf() -> Result<Child, SFErrors> {
     }
 }
 
-#[cfg(test)]
+#[cfg(test)]    // tests all three types of possible moves, see SFResults
 mod tests {
 
     use super::{get_move, SFResults};
