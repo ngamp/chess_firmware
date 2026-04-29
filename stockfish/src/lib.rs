@@ -8,13 +8,13 @@ use std::{
 #[cfg(target_arch = "aarch64")]
 const PATH_TO_STOCKFISH: &str = "../stockfish/sfs/sf_raspi";
 #[cfg(target_arch = "aarch64")]
-const  WELCOME_MESSAGE: &str = "Stockfish dev-20250126-f50d52aa by the Stockfish developers (see AUTHORS file)\nreadyok\n";
+const  WELCOME_MESSAGE: &str = "Stockfish dev-20260426-1a882efc by the Stockfish developers (see AUTHORS file)\nreadyok\n";
 
 
 #[cfg(target_arch = "x86_64")] 
 const PATH_TO_STOCKFISH: &str = "../stockfish/sfs/sf_ubuntu";
 #[cfg(target_arch = "x86_64")] 
-const  WELCOME_MESSAGE: &str = "Stockfish 17 by the Stockfish developers (see AUTHORS file)\nreadyok\n";
+const  WELCOME_MESSAGE: &str = "Stockfish dev-20260426-1a882efc by the Stockfish developers (see AUTHORS file)\nreadyok\n";
 
 
 pub fn get_move(fen: &str, elo: u32, time: u32) -> Result<SFResults, SFErrors> {

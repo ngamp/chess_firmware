@@ -1,8 +1,8 @@
 # Rust/Cargo spezifisch
 **/target/
 **/*.rs.bk
-sf/
-sf2/
+
+.mutagen.yml
 
 
 
